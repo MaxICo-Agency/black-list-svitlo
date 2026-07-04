@@ -5,13 +5,13 @@
 
 ## Google Sheets
 
-Пошук і списки на головній читають CSV листа `Phones`. Зараз підключені тестові дані:
+Пошук і списки на головній читають публічний CSV листа `Phones` у Google Sheets:
 
 ```js
-phonesCsvUrl: "data/phones.csv"
+phonesCsvUrl: "https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0"
 ```
 
-Коли буде реальна Google Sheets таблиця, опублікуй лист `Phones` як CSV і заміни URL у `config.js`:
+Локальний файл `data/phones.csv` залишено як резервну тестову копію з такою самою структурою. Якщо буде інша Google Sheets таблиця, опублікуй лист `Phones` як CSV і заміни URL у `config.js`:
 
 ```js
 phonesCsvUrl: "https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=<PHONES_GID>"
