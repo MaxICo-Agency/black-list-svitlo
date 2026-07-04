@@ -356,13 +356,14 @@
   function renderPersonCard(master) {
     const phoneLabel = master.primaryPhone ? formatPhone(master.primaryPhone) : "Телефон не вказано";
     const reviewText = master.lastReviewText || "Є позитивні відгуки від мешканців.";
+    const profileLink = buildLink("profile", master.primaryPhone, master.record);
 
     return `
       <article class="person-card">
         <img src="${escapeAttribute(master.workPhotoUrl)}" alt="${escapeAttribute(`Робота: ${master.categoryName}`)}" loading="lazy" />
         <div class="person-card-body">
           <div>
-            <h3>${escapeHtml(master.displayName)}</h3>
+            <h3><a href="${escapeAttribute(profileLink)}">${escapeHtml(master.displayName)}</a></h3>
             <p>${escapeHtml(master.categories.join(" · "))}</p>
           </div>
           <div class="person-score">
@@ -370,7 +371,7 @@
             <span>${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}</span>
           </div>
           <small>${escapeHtml(reviewText)}</small>
-          <a href="${escapeAttribute(buildLink("profile", master.primaryPhone, master.record))}">${escapeHtml(phoneLabel)}</a>
+          <a href="${escapeAttribute(profileLink)}">Відкрити профіль · ${escapeHtml(phoneLabel)}</a>
         </div>
       </article>
     `;
@@ -382,11 +383,12 @@
       ? `${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}`
       : `${master.positive} ${pluralize(master.positive, "рекомендація", "рекомендації", "рекомендацій")}`;
     const reviewText = master.lastReviewText || (isWarning ? "Є скарги від мешканців." : "Є позитивні відгуки від мешканців.");
+    const profileLink = buildLink("profile", master.primaryPhone, master.record);
 
     return `
       <article class="person-row person-row--${tone}">
         <div>
-          <h3>${escapeHtml(master.displayName)}</h3>
+          <h3><a href="${escapeAttribute(profileLink)}">${escapeHtml(master.displayName)}</a></h3>
           <p>${escapeHtml(master.categories.join(" · "))} · ${escapeHtml(formatPhone(master.primaryPhone))}</p>
           <small>${escapeHtml(reviewText)}</small>
         </div>

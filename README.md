@@ -2,6 +2,7 @@
 
 Проста мобільна головна сторінка для перевірки майстра по номеру телефону.
 На головній є пошук, категорії послуг, список рекомендованих майстрів і останні записи з black list.
+Клік по майстру відкриває `profile.html` з телефонами, категоріями, фото робіт і відгуками.
 
 Детальний аналіз поточної моделі та наступного кроку: `SYSTEM_ANALYSIS.md`.
 
@@ -29,6 +30,9 @@ phonesCsvUrl: "https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=c
 - `negative_reviews_count`
 - `last_review_at`
 - `last_review_text`
+- `master_photo_url`
+- `work_photo_urls`
+- `review_1_author`, `review_1_type`, `review_1_date`, `review_1_text`, `review_1_photo_url`
 - `profile_url` або `master_id`
 
 Додаткові кнопки також налаштовуються у `config.js` через блок `links`.
