@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="ЧАЕС Світлопарк: перевірка майстрів, бригад і підрядників по номеру телефону."
+    />
+    <title>ЧАЕС Світлопарк</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header" aria-label="Головна навігація">
+        <a class="brand" href="index.html" aria-label="ЧАЕС Світлопарк">
+          <img class="brand-mark" src="assets/svitlopark-mark.svg" alt="" />
+          <span>
+            <strong>ЧАЕС Світлопарк</strong>
+            <small>Перевір майстра перед ремонтом</small>
+          </span>
+        </a>
+        <a class="header-link" data-link="telegramBot" href="#">Telegram-бот</a>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="hero-title">
+          <p class="service-kicker">Перевір майстра перед ремонтом</p>
+          <h1 id="hero-title">Знайди майстра по номеру телефону</h1>
+          <p class="hero-copy">
+            Введи номер телефону майстра, бригади або підрядника — система перевірить,
+            чи є по ньому рекомендації або скарги від мешканців ЖК SVITLO PARK.
+          </p>
+
+          <form class="search-card" id="phone-search-form" novalidate>
+            <label class="field-label" for="phone-input">Номер телефону майстра</label>
+            <div class="search-row">
+              <input
+                id="phone-input"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="+380 XX XXX XX XX"
+                aria-describedby="phone-help"
+              />
+              <button class="primary-button" id="search-button" type="submit">
+                Перевірити майстра
+              </button>
+            </div>
+            <p id="phone-help" class="field-help">
+              Можна вводити з пробілами, дужками або дефісами.
+            </p>
+          </form>
+
+          <nav class="quick-actions" aria-label="Швидкі дії">
+            <a class="action-link action-link--green" data-link="recommend" href="#">
+              ✅ Порекомендувати майстра
+            </a>
+            <a class="action-link action-link--orange" data-link="complaint" href="#">
+              ⚠️ Залишити скаргу
+            </a>
+            <a class="action-link" data-link="categories" href="#">
+              📋 Відкрити всі категорії
+            </a>
+          </nav>
+        </section>
+
+        <section
+          class="result-panel"
+          id="result-panel"
+          aria-live="polite"
+          aria-label="Результат пошуку"
+          hidden
+        ></section>
+
+        <section class="info-section" aria-labelledby="how-title">
+          <h2 id="how-title">Як це працює?</h2>
+          <ol class="steps-list">
+            <li>
+              <span>1</span>
+              <p>Вводиш номер майстра.</p>
+            </li>
+            <li>
+              <span>2</span>
+              <p>Дивишся рекомендації та скарги.</p>
+            </li>
+            <li>
+              <span>3</span>
+              <p>Додаєш свій досвід, якщо хочеш.</p>
+            </li>
+          </ol>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p class="disclaimer">
+          ЧАЕС Світлопарк — це користувацький реєстр рекомендацій і скарг.
+          Інформація базується на відгуках мешканців і проходить модерацію.
+          Платформа не стверджує факт порушення, а фіксує користувацький досвід.
+        </p>
+        <nav class="footer-links" aria-label="Посилання в футері">
+          <a data-link="rules" href="#">Правила</a>
+          <a data-link="privacy" href="#">Privacy</a>
+          <a data-link="telegramChannel" href="#">Telegram-канал</a>
+        </nav>
+      </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

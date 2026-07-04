@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="76" height="76" viewBox="0 0 76 76" role="img" aria-label="ЧАЕС Світлопарк">
+  <rect width="76" height="76" rx="16" fill="#FFFFFF"/>
+  <rect x="1" y="1" width="74" height="74" rx="15" fill="none" stroke="#E5E7EB" stroke-width="2"/>
+  <path d="M21 41.5 33.5 29 43 38.5 55.5 26" fill="none" stroke="#2563EB" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="22" cy="52" r="5" fill="#16A34A"/>
+  <circle cx="53" cy="52" r="5" fill="#F59E0B"/>
+</svg>
