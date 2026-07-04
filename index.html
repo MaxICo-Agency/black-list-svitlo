@@ -26,7 +26,25 @@
             <small>Перевір майстра перед ремонтом</small>
           </span>
         </a>
-        <a class="header-link" data-link="telegramBot" href="#">Telegram-бот</a>
+        <div class="header-menu">
+          <button
+            class="menu-button"
+            id="menu-button"
+            type="button"
+            aria-expanded="false"
+            aria-controls="site-menu"
+            aria-label="Відкрити меню"
+          >
+            ⋯
+          </button>
+          <nav class="site-menu" id="site-menu" aria-label="Дії сайту" hidden>
+            <a data-link="telegramBot" href="#">Telegram-бот</a>
+            <a data-link="recommend" href="#">Порекомендувати майстра</a>
+            <a data-link="complaint" href="#">Залишити скаргу</a>
+            <a data-link="categories" href="#">Всі категорії</a>
+            <a data-link="addMaster" href="#">Додати майстра в таблицю</a>
+          </nav>
+        </div>
       </header>
 
       <main>
@@ -57,28 +75,16 @@
             <p id="phone-help" class="field-help">
               Можна вводити з пробілами, дужками або дефісами.
             </p>
+            <section
+              class="result-panel"
+              id="result-panel"
+              aria-live="polite"
+              aria-label="Результат пошуку"
+              tabindex="-1"
+              hidden
+            ></section>
           </form>
-
-          <nav class="quick-actions" aria-label="Швидкі дії">
-            <a class="action-link action-link--green" data-link="recommend" href="#">
-              ✅ Порекомендувати майстра
-            </a>
-            <a class="action-link action-link--orange" data-link="complaint" href="#">
-              ⚠️ Залишити скаргу
-            </a>
-            <a class="action-link" data-link="categories" href="#">
-              📋 Відкрити всі категорії
-            </a>
-          </nav>
         </section>
-
-        <section
-          class="result-panel"
-          id="result-panel"
-          aria-live="polite"
-          aria-label="Результат пошуку"
-          hidden
-        ></section>
 
         <section class="directory-section" id="service-categories" aria-labelledby="categories-title">
           <div class="section-heading">

@@ -6,6 +6,8 @@
   const input = document.querySelector("#phone-input");
   const searchButton = document.querySelector("#search-button");
   const resultPanel = document.querySelector("#result-panel");
+  const menuButton = document.querySelector("#menu-button");
+  const siteMenu = document.querySelector("#site-menu");
   const categoriesList = document.querySelector("#categories-list");
   const recommendedList = document.querySelector("#recommended-list");
   const blacklistList = document.querySelector("#blacklist-list");
@@ -15,6 +17,10 @@
     "primary_phone",
     "phone",
     "phone_number",
+    "phones",
+    "phone_numbers",
+    "all_phones",
+    "alternate_phones",
     "normalized_phone",
     "phone_normalized"
   ];
@@ -22,15 +28,51 @@
   const fieldAliases = {
     displayName: ["display_name", "name", "master_name", "team_name"],
     categoryName: ["category_name", "category", "service_category"],
+    categoryNames: ["category_names", "categories", "service_categories"],
     primaryPhone: phoneFields,
     telegramUsername: ["telegram_username", "telegram", "tg", "username"],
     positiveReviewsCount: ["positive_reviews_count", "recommendations_count", "positive_count"],
     negativeReviewsCount: ["negative_reviews_count", "complaints_count", "negative_count"],
     lastReviewAt: ["last_review_at", "last_review", "updated_at"],
     lastReviewText: ["last_review_text", "last_review_summary", "review_text", "comment"],
+    workPhotoUrl: ["work_photo_url", "photo_url", "image_url", "portfolio_photo_url"],
     profileUrl: ["profile_url", "url", "master_url"],
     masterId: ["master_id", "id"]
   };
+
+  const categoryIcons = [
+    { match: "елект", icon: "⚡" },
+    { match: "сант", icon: "🚿" },
+    { match: "плит", icon: "▧" },
+    { match: "ремонт", icon: "🛠" },
+    { match: "фарб", icon: "◒" },
+    { match: "маляр", icon: "◒" },
+    { match: "меб", icon: "▤" },
+    { match: "вікн", icon: "▣" },
+    { match: "балкон", icon: "▣" },
+    { match: "кондиц", icon: "❄" },
+    { match: "приби", icon: "✦" },
+    { match: "дизайн", icon: "◇" },
+    { match: "двер", icon: "▥" },
+    { match: "звуко", icon: "≋" }
+  ];
+
+  const categoryPhotos = [
+    { match: "елект", src: "assets/work/electric.svg" },
+    { match: "сант", src: "assets/work/plumbing.svg" },
+    { match: "плит", src: "assets/work/tile.svg" },
+    { match: "ремонт", src: "assets/work/renovation.svg" },
+    { match: "фарб", src: "assets/work/painting.svg" },
+    { match: "маляр", src: "assets/work/painting.svg" },
+    { match: "меб", src: "assets/work/furniture.svg" },
+    { match: "вікн", src: "assets/work/windows.svg" },
+    { match: "балкон", src: "assets/work/windows.svg" },
+    { match: "кондиц", src: "assets/work/climate.svg" },
+    { match: "приби", src: "assets/work/cleaning.svg" },
+    { match: "дизайн", src: "assets/work/design.svg" },
+    { match: "двер", src: "assets/work/doors.svg" },
+    { match: "звуко", src: "assets/work/acoustic.svg" }
+  ];
 
   let phonesCache = null;
 
@@ -151,6 +193,29 @@
     return "";
   }
 
+  function splitList(value) {
+    return String(value || "")
+      .split(/[\n;|,/]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  function getPhones(record) {
+    const values = phoneFields.flatMap((field) => splitList(getField(record, [field])));
+    const normalized = values.map(normalizePhone).filter(isValidUkrainianPhone);
+
+    return Array.from(new Set(normalized));
+  }
+
+  function getCategories(record) {
+    const values = [
+      ...splitList(getField(record, fieldAliases.categoryNames)),
+      ...splitList(getField(record, fieldAliases.categoryName))
+    ].filter(Boolean);
+
+    return Array.from(new Set(values)).length ? Array.from(new Set(values)) : ["Категорія не вказана"];
+  }
+
   function toNumber(value) {
     const number = Number.parseInt(String(value || "0").replace(/[^\d-]/g, ""), 10);
     return Number.isFinite(number) ? number : 0;
@@ -208,31 +273,31 @@
   }
 
   function findMasterByPhone(records, normalizedPhone) {
-    return records.find((record) => {
-      return phoneFields.some((field) => {
-        const value = getField(record, [field]);
-        return normalizePhone(value) === normalizedPhone;
-      });
-    });
+    return records.find((record) => getPhones(record).includes(normalizedPhone));
   }
 
   function getMasterView(record) {
     const displayName = getField(record, fieldAliases.displayName) || "Без назви";
-    const categoryName = getField(record, fieldAliases.categoryName) || "Категорія не вказана";
-    const primaryPhone = getField(record, fieldAliases.primaryPhone);
+    const categories = getCategories(record);
+    const categoryName = categories[0];
+    const phones = getPhones(record);
+    const primaryPhone = phones[0] || normalizePhone(getField(record, fieldAliases.primaryPhone));
     const positive = toNumber(getField(record, fieldAliases.positiveReviewsCount));
     const negative = toNumber(getField(record, fieldAliases.negativeReviewsCount));
 
     return {
       record,
       displayName,
+      categories,
       categoryName,
+      phones,
       primaryPhone,
       telegramUsername: getField(record, fieldAliases.telegramUsername),
       positive,
       negative,
       lastReviewAt: getField(record, fieldAliases.lastReviewAt) || "Ще немає",
       lastReviewText: getField(record, fieldAliases.lastReviewText),
+      workPhotoUrl: getWorkPhotoUrl(record, categoryName),
       profileUrl: buildLink("profile", normalizePhone(primaryPhone), record)
     };
   }
@@ -240,17 +305,19 @@
   function renderHomepageData(records) {
     const masters = records.map(getMasterView);
     const categoryMap = masters.reduce((map, master) => {
-      const current = map.get(master.categoryName) || {
-        name: master.categoryName,
-        total: 0,
-        positive: 0,
-        negative: 0
-      };
+      master.categories.forEach((categoryName) => {
+        const current = map.get(categoryName) || {
+          name: categoryName,
+          total: 0,
+          positive: 0,
+          negative: 0
+        };
 
-      current.total += 1;
-      current.positive += master.positive;
-      current.negative += master.negative;
-      map.set(master.categoryName, current);
+        current.total += 1;
+        current.positive += master.positive;
+        current.negative += master.negative;
+        map.set(categoryName, current);
+      });
 
       return map;
     }, new Map());
@@ -268,7 +335,7 @@
     dataSummary.textContent = `${records.length} тестових записів у базі. Пошук і списки читають один лист Phones.`;
     categoriesList.innerHTML = categories.map(renderCategoryCard).join("");
     recommendedList.innerHTML = recommended.length
-      ? recommended.map((master) => renderPersonRow(master, "good")).join("")
+      ? recommended.map((master) => renderPersonCard(master)).join("")
       : renderEmptyList("Поки немає майстрів із позитивними рекомендаціями.");
     blacklistList.innerHTML = blacklist.length
       ? blacklist.map((master) => renderPersonRow(master, "warning")).join("")
@@ -278,10 +345,34 @@
   function renderCategoryCard(category) {
     return `
       <a class="category-card" href="#recommended-title" data-category="${escapeAttribute(category.name)}">
+        <span class="category-icon" aria-hidden="true">${escapeHtml(getCategoryIcon(category.name))}</span>
         <strong>${escapeHtml(category.name)}</strong>
         <span>${category.total} ${pluralize(category.total, "майстер", "майстри", "майстрів")}</span>
         <small>${category.positive} рек. · ${category.negative} скарг</small>
       </a>
+    `;
+  }
+
+  function renderPersonCard(master) {
+    const phoneLabel = master.primaryPhone ? formatPhone(master.primaryPhone) : "Телефон не вказано";
+    const reviewText = master.lastReviewText || "Є позитивні відгуки від мешканців.";
+
+    return `
+      <article class="person-card">
+        <img src="${escapeAttribute(master.workPhotoUrl)}" alt="${escapeAttribute(`Робота: ${master.categoryName}`)}" loading="lazy" />
+        <div class="person-card-body">
+          <div>
+            <h3>${escapeHtml(master.displayName)}</h3>
+            <p>${escapeHtml(master.categories.join(" · "))}</p>
+          </div>
+          <div class="person-score">
+            <span>${master.positive} ${pluralize(master.positive, "рекомендація", "рекомендації", "рекомендацій")}</span>
+            <span>${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}</span>
+          </div>
+          <small>${escapeHtml(reviewText)}</small>
+          <a href="${escapeAttribute(buildLink("profile", master.primaryPhone, master.record))}">${escapeHtml(phoneLabel)}</a>
+        </div>
+      </article>
     `;
   }
 
@@ -296,7 +387,7 @@
       <article class="person-row person-row--${tone}">
         <div>
           <h3>${escapeHtml(master.displayName)}</h3>
-          <p>${escapeHtml(master.categoryName)} · ${escapeHtml(formatPhone(master.primaryPhone))}</p>
+          <p>${escapeHtml(master.categories.join(" · "))} · ${escapeHtml(formatPhone(master.primaryPhone))}</p>
           <small>${escapeHtml(reviewText)}</small>
         </div>
         <div class="person-meta">
@@ -348,6 +439,25 @@
     return many;
   }
 
+  function getCategoryIcon(categoryName) {
+    const normalized = String(categoryName || "").toLowerCase();
+    const match = categoryIcons.find((item) => normalized.includes(item.match));
+    return match ? match.icon : "◆";
+  }
+
+  function getWorkPhotoUrl(record, categoryName) {
+    const configuredPhoto = getField(record, fieldAliases.workPhotoUrl);
+
+    if (configuredPhoto) {
+      return configuredPhoto;
+    }
+
+    const normalized = String(categoryName || "").toLowerCase();
+    const match = categoryPhotos.find((item) => normalized.includes(item.match));
+
+    return match ? match.src : "assets/work/default.svg";
+  }
+
   function buildLink(kind, phone, master) {
     const configuredLink = links[kind];
 
@@ -384,6 +494,7 @@
       <h2 class="result-title">Перевіряємо ${escapeHtml(formatPhone(phone))}</h2>
       <p class="result-message">Шукаємо номер у листі Phones.</p>
     `;
+    showResultPanel();
   }
 
   function renderNotFound(phone) {
@@ -393,18 +504,19 @@
       <h2 class="result-title">Майстра з таким номером поки немає в базі.</h2>
       <p class="result-message">Перевірений номер: ${escapeHtml(formatPhone(phone))}</p>
       <div class="result-actions">
-        <a class="primary-result-action" href="${escapeAttribute(buildLink("addMaster", phone))}">➕ Додати майстра</a>
-        <a class="good-action" href="${escapeAttribute(buildLink("recommend", phone))}">✅ Залишити рекомендацію</a>
+        <a class="primary-result-action good-action" href="${escapeAttribute(buildLink("recommend", phone))}">✅ Залишити рекомендацію</a>
         <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone))}">⚠️ Залишити скаргу</a>
       </div>
     `;
+    showResultPanel();
   }
 
   function renderFound(master, phone) {
-    const displayName = getField(master, fieldAliases.displayName) || "Без назви";
-    const categoryName = getField(master, fieldAliases.categoryName) || "Категорія не вказана";
-    const masterPhone = getField(master, fieldAliases.primaryPhone) || phone;
-    const telegram = getField(master, fieldAliases.telegramUsername) || "Не вказано";
+    const view = getMasterView(master);
+    const displayName = view.displayName;
+    const categoryName = view.categories.join(" · ");
+    const masterPhone = view.primaryPhone || phone;
+    const telegram = view.telegramUsername || "Не вказано";
     const positive = getField(master, fieldAliases.positiveReviewsCount) || "0";
     const negative = getField(master, fieldAliases.negativeReviewsCount) || "0";
     const lastReview = getField(master, fieldAliases.lastReviewAt) || "Ще немає";
@@ -416,8 +528,9 @@
       <h2 class="result-title">${escapeHtml(displayName)}</h2>
       <div class="master-grid">
         ${renderField("Імʼя", displayName)}
-        ${renderField("Категорія", categoryName)}
+        ${renderField("Категорії", categoryName)}
         ${renderField("Телефон", formatPhone(masterPhone))}
+        ${view.phones.length > 1 ? renderField("Інші номери", view.phones.slice(1).map(formatPhone).join(", ")) : ""}
         ${renderField("Telegram", telegram)}
         ${renderField("Рекомендацій", positive)}
         ${renderField("Скарг", negative)}
@@ -433,6 +546,7 @@
         <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone, master))}">⚠️ Залишити скаргу</a>
       </div>
     `;
+    showResultPanel();
   }
 
   function renderField(label, value) {
@@ -460,6 +574,7 @@
           : "Спробуй ще раз трохи пізніше або перевір публічний доступ до листа Phones."
       }</p>
     `;
+    showResultPanel();
   }
 
   function renderInvalidPhone() {
@@ -469,6 +584,13 @@
       <h2 class="result-title">Введи номер у форматі +380 XX XXX XX XX.</h2>
       <p class="result-message">Пробіли, дужки та дефіси можна залишити — ми очистимо їх автоматично.</p>
     `;
+    showResultPanel();
+  }
+
+  function showResultPanel() {
+    resultPanel.hidden = false;
+    resultPanel.classList.add("result-panel--active");
+    resultPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
   function escapeHtml(value) {
@@ -491,6 +613,17 @@
         element.setAttribute("href", links[key]);
       }
     });
+  }
+
+  function closeMenu() {
+    siteMenu.hidden = true;
+    menuButton.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleMenu() {
+    const shouldOpen = siteMenu.hidden;
+    siteMenu.hidden = !shouldOpen;
+    menuButton.setAttribute("aria-expanded", String(shouldOpen));
   }
 
   async function handleSearch(event) {
@@ -538,5 +671,19 @@
 
   wireStaticLinks();
   form.addEventListener("submit", handleSearch);
+  menuButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMenu();
+  });
+  document.addEventListener("click", (event) => {
+    if (!siteMenu.hidden && !siteMenu.contains(event.target) && event.target !== menuButton) {
+      closeMenu();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMenu();
+    }
+  });
   bootHomepage();
 })();

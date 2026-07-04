@@ -8,7 +8,7 @@ window.CHSP_CONFIG = {
     complaint: "#complaint",
     addMaster: "#add-master",
     categories: "#service-categories",
-    rules: "#rules",
-    privacy: "#privacy"
+    rules: "rules.html",
+    privacy: "privacy.html"
   }
 };
