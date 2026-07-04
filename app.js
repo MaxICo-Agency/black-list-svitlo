@@ -9,6 +9,7 @@
   const menuButton = document.querySelector("#menu-button");
   const siteMenu = document.querySelector("#site-menu");
   const categoriesList = document.querySelector("#categories-list");
+  const categorySearch = document.querySelector("#category-search-input");
   const recommendedList = document.querySelector("#recommended-list");
   const blacklistList = document.querySelector("#blacklist-list");
   const dataSummary = document.querySelector("#data-summary");
@@ -42,6 +43,7 @@
 
   const categoryIcons = [
     { match: "елект", icon: "⚡" },
+    { match: "слабот", icon: "⌁" },
     { match: "сант", icon: "🚿" },
     { match: "плит", icon: "▧" },
     { match: "ремонт", icon: "🛠" },
@@ -75,6 +77,7 @@
   ];
 
   let phonesCache = null;
+  let allCategories = [];
 
   function normalizePhone(value) {
     const digits = String(value || "").replace(/\D/g, "");
@@ -333,7 +336,8 @@
       .slice(0, 6);
 
     dataSummary.textContent = `${records.length} тестових записів у базі. Пошук і списки читають один лист Phones.`;
-    categoriesList.innerHTML = categories.map(renderCategoryCard).join("");
+    allCategories = categories;
+    renderCategories(allCategories);
     recommendedList.innerHTML = recommended.length
       ? recommended.map((master) => renderPersonCard(master)).join("")
       : renderEmptyList("Поки немає майстрів із позитивними рекомендаціями.");
@@ -342,9 +346,28 @@
       : renderEmptyList("Поки немає записів зі скаргами.");
   }
 
+  function renderCategories(categories) {
+    categoriesList.innerHTML = categories.length
+      ? categories.map(renderCategoryCard).join("")
+      : renderEmptyList("Такої категорії поки немає. Спробуй інший запит.");
+  }
+
+  function filterCategories() {
+    const query = normalizeSearch(categorySearch.value);
+
+    if (!query) {
+      renderCategories(allCategories);
+      return;
+    }
+
+    renderCategories(
+      allCategories.filter((category) => normalizeSearch(category.name).includes(query))
+    );
+  }
+
   function renderCategoryCard(category) {
     return `
-      <a class="category-card" href="#recommended-title" data-category="${escapeAttribute(category.name)}">
+      <a class="category-card" href="#recommended-title" data-category="${escapeAttribute(category.name)}" data-category-search="${escapeAttribute(normalizeSearch(category.name))}">
         <span class="category-icon" aria-hidden="true">${escapeHtml(getCategoryIcon(category.name))}</span>
         <strong>${escapeHtml(category.name)}</strong>
         <span>${category.total} ${pluralize(category.total, "майстер", "майстри", "майстрів")}</span>
@@ -439,6 +462,15 @@
     }
 
     return many;
+  }
+
+  function normalizeSearch(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/ґ/g, "г")
+      .replace(/\s+/g, " ");
   }
 
   function getCategoryIcon(categoryName) {
@@ -673,6 +705,7 @@
 
   wireStaticLinks();
   form.addEventListener("submit", handleSearch);
+  categorySearch.addEventListener("input", filterCategories);
   menuButton.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleMenu();
