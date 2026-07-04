@@ -80,6 +80,37 @@
           hidden
         ></section>
 
+        <section class="directory-section" id="service-categories" aria-labelledby="categories-title">
+          <div class="section-heading">
+            <p class="section-kicker">Категорії</p>
+            <h2 id="categories-title">Категорії послуг</h2>
+            <p id="data-summary">Завантажуємо тестові дані з листа Phones.</p>
+          </div>
+          <div class="category-grid" id="categories-list" aria-live="polite"></div>
+        </section>
+
+        <section class="directory-section" aria-labelledby="recommended-title">
+          <div class="section-heading section-heading--row">
+            <div>
+              <p class="section-kicker section-kicker--green">Рекомендації</p>
+              <h2 id="recommended-title">Кого рекомендують</h2>
+            </div>
+            <a class="section-link" data-link="recommend" href="#">Додати рекомендацію</a>
+          </div>
+          <div class="people-list" id="recommended-list" aria-live="polite"></div>
+        </section>
+
+        <section class="directory-section" aria-labelledby="blacklist-title">
+          <div class="section-heading section-heading--row">
+            <div>
+              <p class="section-kicker section-kicker--orange">Black list</p>
+              <h2 id="blacklist-title">Останні люди зі скаргами</h2>
+            </div>
+            <a class="section-link section-link--warning" data-link="complaint" href="#">Залишити скаргу</a>
+          </div>
+          <div class="people-list" id="blacklist-list" aria-live="polite"></div>
+        </section>
+
         <section class="info-section" aria-labelledby="how-title">
           <h2 id="how-title">Як це працює?</h2>
           <ol class="steps-list">

@@ -6,6 +6,10 @@
   const input = document.querySelector("#phone-input");
   const searchButton = document.querySelector("#search-button");
   const resultPanel = document.querySelector("#result-panel");
+  const categoriesList = document.querySelector("#categories-list");
+  const recommendedList = document.querySelector("#recommended-list");
+  const blacklistList = document.querySelector("#blacklist-list");
+  const dataSummary = document.querySelector("#data-summary");
 
   const phoneFields = [
     "primary_phone",
@@ -23,6 +27,7 @@
     positiveReviewsCount: ["positive_reviews_count", "recommendations_count", "positive_count"],
     negativeReviewsCount: ["negative_reviews_count", "complaints_count", "negative_count"],
     lastReviewAt: ["last_review_at", "last_review", "updated_at"],
+    lastReviewText: ["last_review_text", "last_review_summary", "review_text", "comment"],
     profileUrl: ["profile_url", "url", "master_url"],
     masterId: ["master_id", "id"]
   };
@@ -151,6 +156,12 @@
     return Number.isFinite(number) ? number : 0;
   }
 
+  function toDateValue(value) {
+    const date = new Date(value);
+    const time = date.getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+
   function getMasterStatus(master) {
     const positive = toNumber(getField(master, fieldAliases.positiveReviewsCount));
     const negative = toNumber(getField(master, fieldAliases.negativeReviewsCount));
@@ -203,6 +214,138 @@
         return normalizePhone(value) === normalizedPhone;
       });
     });
+  }
+
+  function getMasterView(record) {
+    const displayName = getField(record, fieldAliases.displayName) || "Без назви";
+    const categoryName = getField(record, fieldAliases.categoryName) || "Категорія не вказана";
+    const primaryPhone = getField(record, fieldAliases.primaryPhone);
+    const positive = toNumber(getField(record, fieldAliases.positiveReviewsCount));
+    const negative = toNumber(getField(record, fieldAliases.negativeReviewsCount));
+
+    return {
+      record,
+      displayName,
+      categoryName,
+      primaryPhone,
+      telegramUsername: getField(record, fieldAliases.telegramUsername),
+      positive,
+      negative,
+      lastReviewAt: getField(record, fieldAliases.lastReviewAt) || "Ще немає",
+      lastReviewText: getField(record, fieldAliases.lastReviewText),
+      profileUrl: buildLink("profile", normalizePhone(primaryPhone), record)
+    };
+  }
+
+  function renderHomepageData(records) {
+    const masters = records.map(getMasterView);
+    const categoryMap = masters.reduce((map, master) => {
+      const current = map.get(master.categoryName) || {
+        name: master.categoryName,
+        total: 0,
+        positive: 0,
+        negative: 0
+      };
+
+      current.total += 1;
+      current.positive += master.positive;
+      current.negative += master.negative;
+      map.set(master.categoryName, current);
+
+      return map;
+    }, new Map());
+
+    const categories = Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
+    const recommended = masters
+      .filter((master) => master.positive > 0 && master.negative === 0)
+      .sort((a, b) => b.positive - a.positive || toDateValue(b.lastReviewAt) - toDateValue(a.lastReviewAt))
+      .slice(0, 6);
+    const blacklist = masters
+      .filter((master) => master.negative > 0)
+      .sort((a, b) => toDateValue(b.lastReviewAt) - toDateValue(a.lastReviewAt) || b.negative - a.negative)
+      .slice(0, 6);
+
+    dataSummary.textContent = `${records.length} тестових записів у базі. Пошук і списки читають один лист Phones.`;
+    categoriesList.innerHTML = categories.map(renderCategoryCard).join("");
+    recommendedList.innerHTML = recommended.length
+      ? recommended.map((master) => renderPersonRow(master, "good")).join("")
+      : renderEmptyList("Поки немає майстрів із позитивними рекомендаціями.");
+    blacklistList.innerHTML = blacklist.length
+      ? blacklist.map((master) => renderPersonRow(master, "warning")).join("")
+      : renderEmptyList("Поки немає записів зі скаргами.");
+  }
+
+  function renderCategoryCard(category) {
+    return `
+      <a class="category-card" href="#recommended-title" data-category="${escapeAttribute(category.name)}">
+        <strong>${escapeHtml(category.name)}</strong>
+        <span>${category.total} ${pluralize(category.total, "майстер", "майстри", "майстрів")}</span>
+        <small>${category.positive} рек. · ${category.negative} скарг</small>
+      </a>
+    `;
+  }
+
+  function renderPersonRow(master, tone) {
+    const isWarning = tone === "warning";
+    const reviewsLine = isWarning
+      ? `${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}`
+      : `${master.positive} ${pluralize(master.positive, "рекомендація", "рекомендації", "рекомендацій")}`;
+    const reviewText = master.lastReviewText || (isWarning ? "Є скарги від мешканців." : "Є позитивні відгуки від мешканців.");
+
+    return `
+      <article class="person-row person-row--${tone}">
+        <div>
+          <h3>${escapeHtml(master.displayName)}</h3>
+          <p>${escapeHtml(master.categoryName)} · ${escapeHtml(formatPhone(master.primaryPhone))}</p>
+          <small>${escapeHtml(reviewText)}</small>
+        </div>
+        <div class="person-meta">
+          <strong>${escapeHtml(reviewsLine)}</strong>
+          <span>${escapeHtml(master.lastReviewAt)}</span>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderEmptyList(message) {
+    return `<p class="empty-list">${escapeHtml(message)}</p>`;
+  }
+
+  function renderHomepageLoading() {
+    dataSummary.textContent = "Завантажуємо тестові дані з листа Phones.";
+    categoriesList.innerHTML = renderEmptyList("Завантажуємо категорії...");
+    recommendedList.innerHTML = renderEmptyList("Завантажуємо рекомендації...");
+    blacklistList.innerHTML = renderEmptyList("Завантажуємо black list...");
+  }
+
+  function renderHomepageError(error) {
+    const message = error.message === "missing_sheet_url"
+      ? "Потрібно додати CSV URL листа Phones у config.js."
+      : "Не вдалося завантажити лист Phones.";
+
+    dataSummary.textContent = message;
+    categoriesList.innerHTML = renderEmptyList(message);
+    recommendedList.innerHTML = renderEmptyList(message);
+    blacklistList.innerHTML = renderEmptyList(message);
+  }
+
+  function pluralize(number, one, few, many) {
+    const normalized = Math.abs(number) % 100;
+    const lastDigit = normalized % 10;
+
+    if (normalized > 10 && normalized < 20) {
+      return many;
+    }
+
+    if (lastDigit === 1) {
+      return one;
+    }
+
+    if (lastDigit >= 2 && lastDigit <= 4) {
+      return few;
+    }
+
+    return many;
   }
 
   function buildLink(kind, phone, master) {
@@ -383,6 +526,17 @@
     }
   }
 
+  async function bootHomepage() {
+    renderHomepageLoading();
+
+    try {
+      renderHomepageData(await loadPhones());
+    } catch (error) {
+      renderHomepageError(error);
+    }
+  }
+
   wireStaticLinks();
   form.addEventListener("submit", handleSearch);
+  bootHomepage();
 })();
