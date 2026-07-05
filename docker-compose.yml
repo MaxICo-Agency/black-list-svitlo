@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    container_name: bl-svitlopark
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      RUNTIME_DIR: /app/runtime
+      PUBLIC_SITE_URL: https://bl-svitlopark.maxicolabs.com
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      - ./runtime:/app/runtime
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.blsvitlopark-main-http.entrypoints=web
+      - traefik.http.routers.blsvitlopark-main-http.rule=Host(`bl-svitlopark.maxicolabs.com`)
+      - traefik.http.routers.blsvitlopark-main-http.service=blsvitlopark
+      - traefik.http.routers.blsvitlopark-test-http.entrypoints=web
+      - traefik.http.routers.blsvitlopark-test-http.rule=Host(`bl-svitlopark.13.140.186.201.sslip.io`)
+      - traefik.http.routers.blsvitlopark-test-http.middlewares=blsvitlopark-redirect
+      - traefik.http.routers.blsvitlopark-test-http.service=blsvitlopark
+      - traefik.http.middlewares.blsvitlopark-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.blsvitlopark-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.blsvitlopark-test.entrypoints=websecure
+      - traefik.http.routers.blsvitlopark-test.rule=Host(`bl-svitlopark.13.140.186.201.sslip.io`)
+      - traefik.http.routers.blsvitlopark-test.tls=true
+      - traefik.http.routers.blsvitlopark-test.tls.certresolver=le
+      - traefik.http.routers.blsvitlopark-test.service=blsvitlopark
+      - traefik.http.services.blsvitlopark.loadbalancer.server.port=3000
+
+networks:
+  web:
+    external: true

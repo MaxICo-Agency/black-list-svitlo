@@ -1,2 +1,4 @@
 .DS_Store
 prompts.md
+.env
+runtime/

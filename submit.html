@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Залишити рекомендацію, скаргу або додати майстра у Black List Світло парк."
+    />
+    <meta property="og:title" content="Black List Світло парк" />
+    <meta
+      property="og:description"
+      content="Перевір майстра перед ремонтом і додай свій досвід."
+    />
+    <meta property="og:image" content="https://bl-svitlopark.maxicolabs.com/assets/cover.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://bl-svitlopark.maxicolabs.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>Заявка | Black List Світло парк</title>
+    <link rel="icon" href="assets/svitlopark-mark.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header" aria-label="Навігація заявки">
+        <a class="brand" href="index.html" aria-label="Black List Світло парк">
+          <img class="brand-mark" src="assets/svitlopark-mark.svg" alt="" />
+          <span>
+            <strong>Black List Світло парк</strong>
+            <small>Заявка на модерацію</small>
+          </span>
+        </a>
+        <a class="header-link" href="index.html">На головну</a>
+      </header>
+
+      <main class="submit-page">
+        <section class="submit-hero" aria-labelledby="submit-title">
+          <p class="service-kicker" id="submit-kicker">Заявка</p>
+          <h1 id="submit-title">Залишити заявку</h1>
+          <p class="hero-copy" id="submit-copy">
+            Заповни коротку форму. Запис потрапить на модерацію перед публікацією.
+          </p>
+        </section>
+
+        <form class="form-card" id="submission-form">
+          <label class="field-label" for="submission-type">Тип заявки</label>
+          <select id="submission-type" name="type">
+            <option value="recommend">Рекомендація</option>
+            <option value="complaint">Скарга</option>
+            <option value="add">Додати майстра</option>
+            <option value="bot">Telegram-бот</option>
+            <option value="channel">Telegram-канал</option>
+          </select>
+
+          <div class="field-grid">
+            <label>
+              <span>Телефон майстра</span>
+              <input
+                id="master-phone"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="+380 XX XXX XX XX"
+              />
+            </label>
+            <label>
+              <span>Імʼя майстра або бригади</span>
+              <input id="master-name" name="masterName" type="text" autocomplete="off" />
+            </label>
+          </div>
+
+          <label>
+            <span>Категорія</span>
+            <input
+              id="category-name"
+              name="category"
+              type="text"
+              autocomplete="off"
+              placeholder="Наприклад: електрика, сантехніка, плитка"
+            />
+          </label>
+
+          <label>
+            <span>Текст відгуку або заявки</span>
+            <textarea
+              id="submission-text"
+              name="text"
+              rows="5"
+              placeholder="Що саме хочеш додати? Можна коротко."
+              required
+            ></textarea>
+          </label>
+
+          <div class="field-grid">
+            <label>
+              <span>Ваше імʼя</span>
+              <input id="author-name" name="authorName" type="text" autocomplete="name" placeholder="Можна анонімно" />
+            </label>
+            <label>
+              <span>Контакт для уточнення</span>
+              <input id="author-contact" name="authorContact" type="text" autocomplete="off" placeholder="Telegram або телефон" />
+            </label>
+          </div>
+
+          <label>
+            <span>Посилання на фото роботи, якщо є</span>
+            <input id="photo-url" name="photoUrl" type="url" inputmode="url" placeholder="https://..." />
+          </label>
+
+          <button class="primary-button submit-button" id="submission-button" type="submit">
+            Надіслати заявку
+          </button>
+          <p class="form-status" id="submission-status" role="status" aria-live="polite"></p>
+        </form>
+      </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="submit.js"></script>
+  </body>
+</html>

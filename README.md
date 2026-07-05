@@ -36,3 +36,36 @@ phonesCsvUrl: "https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=c
 - `profile_url` або `master_id`
 
 Додаткові кнопки також налаштовуються у `config.js` через блок `links`.
+
+## Заявки
+
+Кнопки рекомендації, скарги й додавання майстра ведуть на `submit.html`.
+На серверному деплої форма відправляє JSON у `POST /api/submissions`.
+Сервер зберігає заявки у `runtime/submissions.jsonl`.
+
+Telegram-відправка вмикається через env:
+
+```bash
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+```
+
+Якщо ці значення порожні, заявка все одно зберігається на сервері, але не
+відправляється в Telegram.
+
+## Деплой
+
+Проєкт готовий для VPS із Docker + Traefik:
+
+```bash
+docker compose up -d --build
+```
+
+Основний домен після DNS: `http://bl-svitlopark.maxicolabs.com/`.
+Тестовий домен до налаштування DNS: `https://bl-svitlopark.13.140.186.201.sslip.io/`.
+
+Для фінального домену потрібен DNS A-запис:
+
+```text
+bl-svitlopark.maxicolabs.com -> 13.140.186.201
+```

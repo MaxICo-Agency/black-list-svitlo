@@ -1,0 +1,10 @@
+{
+  "name": "bl-svitlopark",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Black List Світло парк website and submission server",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check app.js && node --check profile.js && node --check submit.js && node --check config.js && node --check server.js"
+  }
+}
