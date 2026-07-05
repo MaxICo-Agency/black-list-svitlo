@@ -6,9 +6,12 @@ services:
     environment:
       PORT: "3000"
       RUNTIME_DIR: /app/runtime
-      PUBLIC_SITE_URL: https://bl-svitlopark.maxicolabs.com
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://bl-svitlopark.maxicolabs.com}
+      PHONES_CSV_URL: ${PHONES_CSV_URL:-https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
     volumes:
       - ./runtime:/app/runtime
     networks:

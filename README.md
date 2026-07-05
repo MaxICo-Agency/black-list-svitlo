@@ -47,11 +47,17 @@ Telegram-відправка вмикається через env:
 
 ```bash
 TELEGRAM_BOT_TOKEN=
+TELEGRAM_BOT_USERNAME=bl_svitlopark_bot
 TELEGRAM_CHAT_ID=
+TELEGRAM_WEBHOOK_SECRET=
 ```
 
 Якщо ці значення порожні, заявка все одно зберігається на сервері, але не
 відправляється в Telegram.
+
+Бот: `@bl_svitlopark_bot`.
+Webhook endpoint: `POST /api/telegram/webhook`.
+Бот відповідає на `/start`, `/help` і номер телефону у форматі `+380...` або `067...`.
 
 ## Деплой
 

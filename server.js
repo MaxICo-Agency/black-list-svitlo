@@ -7,7 +7,9 @@ const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = __dirname;
 const RUNTIME_DIR = process.env.RUNTIME_DIR || path.join(__dirname, "runtime");
 const SUBMISSIONS_FILE = path.join(RUNTIME_DIR, "submissions.jsonl");
-const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "https://bl-svitlopark.maxicolabs.com";
+const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "http://bl-svitlopark.maxicolabs.com";
+const PHONES_CSV_URL = process.env.PHONES_CSV_URL || "https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0";
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -24,6 +26,7 @@ const mimeTypes = {
 };
 
 const allowedTypes = new Set(["recommend", "complaint", "add", "bot", "channel"]);
+let phoneRecordsCache = { loadedAt: 0, records: [] };
 
 const server = http.createServer(async (request, response) => {
   try {
@@ -35,6 +38,10 @@ const server = http.createServer(async (request, response) => {
 
     if (url.pathname === "/api/submissions") {
       return handleSubmission(request, response);
+    }
+
+    if (url.pathname === "/api/telegram/webhook") {
+      return handleTelegramWebhook(request, response);
     }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -82,6 +89,84 @@ async function handleSubmission(request, response) {
     id: saved.id,
     telegramSent: telegramResult.sent
   });
+}
+
+async function handleTelegramWebhook(request, response) {
+  if (request.method !== "POST") {
+    return sendJson(response, 405, { error: "method_not_allowed" });
+  }
+
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const secret = request.headers["x-telegram-bot-api-secret-token"];
+    if (secret !== TELEGRAM_WEBHOOK_SECRET) {
+      return sendJson(response, 403, { error: "forbidden" });
+    }
+  }
+
+  const update = await readJsonBody(request);
+  await processTelegramUpdate(update);
+  return sendJson(response, 200, { ok: true });
+}
+
+async function processTelegramUpdate(update) {
+  const message = update.message || update.edited_message;
+  const chatId = message?.chat?.id;
+  const text = clean(message?.text, 1000);
+
+  if (!chatId || !text) {
+    return;
+  }
+
+  if (text.startsWith("/start") || text.startsWith("/help")) {
+    await sendBotMessage(chatId, [
+      "Black List Світло парк",
+      "",
+      "Надішли номер телефону майстра, бригади або підрядника.",
+      "Я перевірю, чи є по ньому рекомендації або скарги від мешканців ЖК SVITLO PARK.",
+      "",
+      "Приклад: +380 67 111 22 33"
+    ].join("\n"));
+    return;
+  }
+
+  const phone = normalizePhone(text);
+
+  if (!/^\+380\d{9}$/.test(phone)) {
+    await sendBotMessage(chatId, "Надішли номер у форматі +380 XX XXX XX XX або 067 XXX XX XX.");
+    return;
+  }
+
+  const records = await loadPhoneRecords();
+  const record = records.find((item) => item.phones.includes(phone));
+
+  if (!record) {
+    const encodedPhone = encodeURIComponent(phone);
+    await sendBotMessage(chatId, [
+      "Майстра з таким номером поки немає в базі.",
+      "",
+      `Залишити рекомендацію: ${PUBLIC_SITE_URL}/submit.html?type=recommend&phone=${encodedPhone}`,
+      `Залишити скаргу: ${PUBLIC_SITE_URL}/submit.html?type=complaint&phone=${encodedPhone}`
+    ].join("\n"));
+    return;
+  }
+
+  const status = getMasterStatus(record);
+  const profileUrl = `${PUBLIC_SITE_URL}/profile.html?phone=${encodeURIComponent(phone)}`;
+
+  await sendBotMessage(chatId, [
+    "Знайдено майстра",
+    "",
+    `Імʼя: ${record.displayName}`,
+    `Категорія: ${record.categoryName}`,
+    `Телефон: ${formatPhone(phone)}`,
+    record.telegramUsername ? `Telegram: ${record.telegramUsername}` : "",
+    `Рекомендацій: ${record.positive}`,
+    `Скарг: ${record.negative}`,
+    record.lastReviewAt ? `Останній відгук: ${record.lastReviewAt}` : "",
+    `Статус: ${status}`,
+    "",
+    `Профіль: ${profileUrl}`
+  ].filter(Boolean).join("\n"));
 }
 
 function normalizeSubmission(payload) {
@@ -165,6 +250,167 @@ async function sendTelegram(submission) {
     console.warn(`Telegram send failed: ${error.message}`);
     return { sent: false };
   }
+}
+
+async function sendBotMessage(chatId, text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token) {
+    return { sent: false, skipped: true };
+  }
+
+  try {
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        disable_web_page_preview: true
+      })
+    });
+
+    return { sent: telegramResponse.ok };
+  } catch (error) {
+    console.warn(`Telegram bot reply failed: ${error.message}`);
+    return { sent: false };
+  }
+}
+
+async function loadPhoneRecords() {
+  const now = Date.now();
+
+  if (phoneRecordsCache.records.length && now - phoneRecordsCache.loadedAt < 60_000) {
+    return phoneRecordsCache.records;
+  }
+
+  const response = await fetch(PHONES_CSV_URL, { cache: "no-store" });
+  const csv = response.ok ? await response.text() : await fs.readFile(path.join(STATIC_DIR, "data", "phones.csv"), "utf8");
+  const records = parseCsv(csv).map(normalizePhoneRecord).filter((record) => record.phones.length);
+
+  phoneRecordsCache = { loadedAt: now, records };
+  return records;
+}
+
+function normalizePhoneRecord(row) {
+  const phones = splitMulti(row.primary_phone || row.phone || row.phone_numbers || row.phones)
+    .concat(splitMulti(row.phone_numbers || row.phones))
+    .map(normalizePhone)
+    .filter((phone, index, list) => /^\+380\d{9}$/.test(phone) && list.indexOf(phone) === index);
+
+  return {
+    phones,
+    displayName: row.display_name || row.name || "Не вказано",
+    categoryName: row.category_name || row.category_names || row.category || "Не вказано",
+    telegramUsername: row.telegram_username || row.telegram || "",
+    positive: Number(row.positive_reviews_count || row.recommendations_count || 0) || 0,
+    negative: Number(row.negative_reviews_count || row.complaints_count || 0) || 0,
+    lastReviewAt: row.last_review_at || "",
+    lastReviewText: row.last_review_text || ""
+  };
+}
+
+function parseCsv(csv) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let insideQuotes = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const char = csv[index];
+    const next = csv[index + 1];
+
+    if (char === '"' && insideQuotes && next === '"') {
+      value += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      insideQuotes = !insideQuotes;
+      continue;
+    }
+
+    if (char === "," && !insideQuotes) {
+      row.push(value);
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !insideQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(value);
+      if (row.some((cell) => cell.trim())) {
+        rows.push(row);
+      }
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  if (value || row.length) {
+    row.push(value);
+    rows.push(row);
+  }
+
+  const headers = (rows.shift() || []).map((header) => header.trim());
+  return rows.map((cells) => Object.fromEntries(headers.map((header, index) => [header, (cells[index] || "").trim()])));
+}
+
+function splitMulti(value) {
+  return String(value || "")
+    .split(/[;,|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizePhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  if (digits.length === 9) {
+    return `+380${digits}`;
+  }
+
+  if (digits.length === 10 && digits.startsWith("0")) {
+    return `+38${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("380")) {
+    return `+${digits}`;
+  }
+
+  return `+${digits}`;
+}
+
+function formatPhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.length !== 12) {
+    return phone || "";
+  }
+
+  return `+${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
+}
+
+function getMasterStatus(record) {
+  if (record.negative > 0) {
+    return "Є скарги";
+  }
+
+  if (record.positive > 0) {
+    return "Є позитивні відгуки";
+  }
+
+  return "Мало інформації";
 }
 
 async function serveStatic(pathname, request, response) {
