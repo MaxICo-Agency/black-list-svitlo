@@ -67,7 +67,7 @@ Webhook endpoint: `POST /api/telegram/webhook`.
 docker compose up -d --build
 ```
 
-Основний домен після DNS: `http://bl-svitlopark.maxicolabs.com/`.
+Основний домен після DNS: `https://bl-svitlopark.maxicolabs.com/`.
 Тестовий домен до налаштування DNS: `https://bl-svitlopark.13.140.186.201.sslip.io/`.
 
 Для фінального домену потрібен DNS A-запис:

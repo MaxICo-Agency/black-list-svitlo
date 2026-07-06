@@ -22,6 +22,11 @@ services:
       - traefik.http.routers.blsvitlopark-main-http.entrypoints=web
       - traefik.http.routers.blsvitlopark-main-http.rule=Host(`bl-svitlopark.maxicolabs.com`)
       - traefik.http.routers.blsvitlopark-main-http.service=blsvitlopark
+      - traefik.http.routers.blsvitlopark-main.entrypoints=websecure
+      - traefik.http.routers.blsvitlopark-main.rule=Host(`bl-svitlopark.maxicolabs.com`)
+      - traefik.http.routers.blsvitlopark-main.tls=true
+      - traefik.http.routers.blsvitlopark-main.tls.certresolver=le
+      - traefik.http.routers.blsvitlopark-main.service=blsvitlopark
       - traefik.http.routers.blsvitlopark-test-http.entrypoints=web
       - traefik.http.routers.blsvitlopark-test-http.rule=Host(`bl-svitlopark.13.140.186.201.sslip.io`)
       - traefik.http.routers.blsvitlopark-test-http.middlewares=blsvitlopark-redirect
