@@ -477,7 +477,9 @@ async function serveStatic(pathname, request, response) {
 
   response.writeHead(200, {
     "Content-Type": contentType,
-    "Cache-Control": extension === ".html" || extension === ".js" ? "no-cache" : "public, max-age=3600"
+    "Cache-Control": [".html", ".js", ".css"].includes(extension)
+      ? "no-cache"
+      : "public, max-age=3600"
   });
 
   if (request.method !== "HEAD") {
