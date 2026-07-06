@@ -12,6 +12,7 @@
   const categorySearch = document.querySelector("#category-search-input");
   const recommendedList = document.querySelector("#recommended-list");
   const blacklistList = document.querySelector("#blacklist-list");
+  const complaintTicker = document.querySelector("#complaint-ticker");
   const dataSummary = document.querySelector("#data-summary");
 
   const phoneFields = [
@@ -37,6 +38,7 @@
     lastReviewAt: ["last_review_at", "last_review", "updated_at"],
     lastReviewText: ["last_review_text", "last_review_summary", "review_text", "comment"],
     workPhotoUrl: ["work_photo_url", "photo_url", "image_url", "portfolio_photo_url"],
+    workPhotoUrls: ["work_photo_urls", "work_photos", "photo_urls", "portfolio_photo_urls"],
     profileUrl: ["profile_url", "url", "master_url"],
     masterId: ["master_id", "id"]
   };
@@ -198,7 +200,7 @@
 
   function splitList(value) {
     return String(value || "")
-      .split(/[\n;|,/]+/)
+      .split(/[\n;|,]+/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -287,6 +289,7 @@
     const primaryPhone = phones[0] || normalizePhone(getField(record, fieldAliases.primaryPhone));
     const positive = toNumber(getField(record, fieldAliases.positiveReviewsCount));
     const negative = toNumber(getField(record, fieldAliases.negativeReviewsCount));
+    const workPhotoUrls = getWorkPhotoUrls(record, categoryName);
 
     return {
       record,
@@ -300,7 +303,8 @@
       negative,
       lastReviewAt: getField(record, fieldAliases.lastReviewAt) || "Ще немає",
       lastReviewText: getField(record, fieldAliases.lastReviewText),
-      workPhotoUrl: getWorkPhotoUrl(record, categoryName),
+      workPhotoUrl: workPhotoUrls[0],
+      workPhotoUrls,
       profileUrl: buildLink("profile", normalizePhone(primaryPhone), record)
     };
   }
@@ -335,7 +339,7 @@
       .sort((a, b) => toDateValue(b.lastReviewAt) - toDateValue(a.lastReviewAt) || b.negative - a.negative)
       .slice(0, 6);
 
-    dataSummary.textContent = `${records.length} тестових записів у базі. Пошук і списки читають один лист Phones.`;
+    dataSummary.textContent = `${records.length} записів у базі. Послуги і списки читають один лист Phones.`;
     allCategories = categories;
     renderCategories(allCategories);
     recommendedList.innerHTML = recommended.length
@@ -344,12 +348,13 @@
     blacklistList.innerHTML = blacklist.length
       ? blacklist.map((master) => renderPersonRow(master, "warning")).join("")
       : renderEmptyList("Поки немає записів зі скаргами.");
+    renderComplaintTicker(blacklist);
   }
 
   function renderCategories(categories) {
     categoriesList.innerHTML = categories.length
       ? categories.map(renderCategoryCard).join("")
-      : renderEmptyList("Такої категорії поки немає. Спробуй інший запит.");
+      : renderEmptyList("Такої послуги поки немає. Спробуй інший запит.");
   }
 
   function filterCategories() {
@@ -380,13 +385,18 @@
     const phoneLabel = master.primaryPhone ? formatPhone(master.primaryPhone) : "Телефон не вказано";
     const reviewText = master.lastReviewText || "Є позитивні відгуки від мешканців.";
     const profileLink = buildLink("profile", master.primaryPhone, master.record);
+    const photos = master.workPhotoUrls.length ? master.workPhotoUrls : [master.workPhotoUrl];
 
     return `
-      <article class="person-card">
-        <img src="${escapeAttribute(master.workPhotoUrl)}" alt="${escapeAttribute(`Робота: ${master.categoryName}`)}" loading="lazy" />
+      <a class="person-card person-card--clickable" href="${escapeAttribute(profileLink)}">
+        <div class="person-gallery" aria-label="Фото робіт">
+          ${photos.slice(0, 4).map((photoUrl) => `
+            <img src="${escapeAttribute(photoUrl)}" alt="${escapeAttribute(`Робота: ${master.categoryName}`)}" loading="lazy" />
+          `).join("")}
+        </div>
         <div class="person-card-body">
           <div>
-            <h3><a href="${escapeAttribute(profileLink)}">${escapeHtml(master.displayName)}</a></h3>
+            <h3>${escapeHtml(master.displayName)}</h3>
             <p>${escapeHtml(master.categories.join(" · "))}</p>
           </div>
           <div class="person-score">
@@ -394,9 +404,9 @@
             <span>${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}</span>
           </div>
           <small>${escapeHtml(reviewText)}</small>
-          <a href="${escapeAttribute(profileLink)}">Відкрити профіль · ${escapeHtml(phoneLabel)}</a>
+          <span class="person-card-link">Відкрити профіль · ${escapeHtml(phoneLabel)}</span>
         </div>
-      </article>
+      </a>
     `;
   }
 
@@ -409,9 +419,9 @@
     const profileLink = buildLink("profile", master.primaryPhone, master.record);
 
     return `
-      <article class="person-row person-row--${tone}">
+      <a class="person-row person-row--${tone}" href="${escapeAttribute(profileLink)}">
         <div>
-          <h3><a href="${escapeAttribute(profileLink)}">${escapeHtml(master.displayName)}</a></h3>
+          <h3>${escapeHtml(master.displayName)}</h3>
           <p>${escapeHtml(master.categories.join(" · "))} · ${escapeHtml(formatPhone(master.primaryPhone))}</p>
           <small>${escapeHtml(reviewText)}</small>
         </div>
@@ -419,7 +429,40 @@
           <strong>${escapeHtml(reviewsLine)}</strong>
           <span>${escapeHtml(master.lastReviewAt)}</span>
         </div>
-      </article>
+      </a>
+    `;
+  }
+
+  function renderComplaintTicker(blacklist) {
+    if (!complaintTicker) {
+      return;
+    }
+
+    if (!blacklist.length) {
+      complaintTicker.innerHTML = renderEmptyList("Поки немає останніх скарг.");
+      return;
+    }
+
+    const repeated = [...blacklist, ...blacklist];
+    complaintTicker.innerHTML = `
+      <div class="complaint-track">
+        ${repeated.map(renderComplaintTickerCard).join("")}
+      </div>
+    `;
+  }
+
+  function renderComplaintTickerCard(master) {
+    const profileLink = buildLink("profile", master.primaryPhone, master.record);
+    const reviewText = master.lastReviewText || "Є скарги від мешканців.";
+
+    return `
+      <a class="complaint-card" href="${escapeAttribute(profileLink)}">
+        <span>
+          <strong>${escapeHtml(master.displayName)}</strong>
+          <em>${escapeHtml(formatPhone(master.primaryPhone))}</em>
+        </span>
+        <small>${escapeHtml(reviewText)}</small>
+      </a>
     `;
   }
 
@@ -428,10 +471,13 @@
   }
 
   function renderHomepageLoading() {
-    dataSummary.textContent = "Завантажуємо тестові дані з листа Phones.";
-    categoriesList.innerHTML = renderEmptyList("Завантажуємо категорії...");
+    dataSummary.textContent = "Завантажуємо дані з листа Phones.";
+    categoriesList.innerHTML = renderEmptyList("Завантажуємо послуги...");
     recommendedList.innerHTML = renderEmptyList("Завантажуємо рекомендації...");
     blacklistList.innerHTML = renderEmptyList("Завантажуємо black list...");
+    if (complaintTicker) {
+      complaintTicker.innerHTML = renderEmptyList("Завантажуємо останні скарги...");
+    }
   }
 
   function renderHomepageError(error) {
@@ -443,6 +489,9 @@
     categoriesList.innerHTML = renderEmptyList(message);
     recommendedList.innerHTML = renderEmptyList(message);
     blacklistList.innerHTML = renderEmptyList(message);
+    if (complaintTicker) {
+      complaintTicker.innerHTML = renderEmptyList(message);
+    }
   }
 
   function pluralize(number, one, few, many) {
@@ -480,12 +529,23 @@
   }
 
   function getWorkPhotoUrl(record, categoryName) {
-    const configuredPhoto = getField(record, fieldAliases.workPhotoUrl);
+    return getWorkPhotoUrls(record, categoryName)[0];
+  }
 
-    if (configuredPhoto) {
-      return configuredPhoto;
+  function getWorkPhotoUrls(record, categoryName) {
+    const configuredPhotos = [
+      ...splitList(getField(record, fieldAliases.workPhotoUrls)),
+      ...splitList(getField(record, fieldAliases.workPhotoUrl))
+    ];
+
+    if (configuredPhotos.length) {
+      return Array.from(new Set(configuredPhotos));
     }
 
+    return [getFallbackWorkPhotoUrl(categoryName)];
+  }
+
+  function getFallbackWorkPhotoUrl(categoryName) {
     const normalized = String(categoryName || "").toLowerCase();
     const match = categoryPhotos.find((item) => normalized.includes(item.match));
 
@@ -526,7 +586,7 @@
     resultPanel.innerHTML = `
       <p class="result-eyebrow">Пошук</p>
       <h2 class="result-title">Перевіряємо ${escapeHtml(formatPhone(phone))}</h2>
-      <p class="result-message">Шукаємо номер у листі Phones.</p>
+      <p class="result-message">Шукаємо номер у Google Sheets.</p>
     `;
     showResultPanel();
   }
@@ -538,8 +598,9 @@
       <h2 class="result-title">Майстра з таким номером поки немає в базі.</h2>
       <p class="result-message">Перевірений номер: ${escapeHtml(formatPhone(phone))}</p>
       <div class="result-actions">
-        <a class="primary-result-action good-action" href="${escapeAttribute(buildLink("recommend", phone))}">✅ Залишити рекомендацію</a>
-        <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone))}">⚠️ Залишити скаргу</a>
+        <a class="primary-result-action good-action" href="${escapeAttribute(buildLink("recommend", phone))}">Залишити рекомендацію</a>
+        <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone))}">Залишити скаргу</a>
+        <a href="${escapeAttribute(buildLink("addMaster", phone))}">Стати майстром</a>
       </div>
     `;
     showResultPanel();
@@ -575,9 +636,9 @@
         </div>
       </div>
       <div class="result-actions">
-        <a class="primary-result-action" href="${escapeAttribute(buildLink("profile", phone, master))}">👤 Відкрити профіль</a>
-        <a class="good-action" href="${escapeAttribute(buildLink("recommend", phone, master))}">✅ Додати рекомендацію</a>
-        <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone, master))}">⚠️ Залишити скаргу</a>
+        <a class="primary-result-action" href="${escapeAttribute(buildLink("profile", phone, master))}">Відкрити профіль</a>
+        <a class="good-action" href="${escapeAttribute(buildLink("recommend", phone, master))}">Додати рекомендацію</a>
+        <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone, master))}">Залишити скаргу</a>
       </div>
     `;
     showResultPanel();
@@ -689,7 +750,7 @@
       renderError(error);
     } finally {
       searchButton.disabled = false;
-      searchButton.textContent = "Перевірити майстра";
+      searchButton.textContent = "Перевірити";
     }
   }
 

@@ -7,7 +7,7 @@ const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = __dirname;
 const RUNTIME_DIR = process.env.RUNTIME_DIR || path.join(__dirname, "runtime");
 const SUBMISSIONS_FILE = path.join(RUNTIME_DIR, "submissions.jsonl");
-const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "http://bl-svitlopark.maxicolabs.com";
+const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "https://bl-svitlopark.maxicolabs.com";
 const PHONES_CSV_URL = process.env.PHONES_CSV_URL || "https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0";
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
 
@@ -18,6 +18,7 @@ const mimeTypes = {
   ".csv": "text/csv; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
+  ".avif": "image/avif",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -125,14 +126,18 @@ async function processTelegramUpdate(update) {
       "Я перевірю, чи є по ньому рекомендації або скарги від мешканців ЖК SVITLO PARK.",
       "",
       "Приклад: +380 67 111 22 33"
-    ].join("\n"));
+    ].join("\n"), mainMenuKeyboard());
     return;
   }
 
   const phone = normalizePhone(text);
 
   if (!/^\+380\d{9}$/.test(phone)) {
-    await sendBotMessage(chatId, "Надішли номер у форматі +380 XX XXX XX XX або 067 XXX XX XX.");
+    await sendBotMessage(
+      chatId,
+      "Надішли номер у форматі +380 XX XXX XX XX або 067 XXX XX XX.",
+      mainMenuKeyboard()
+    );
     return;
   }
 
@@ -140,18 +145,16 @@ async function processTelegramUpdate(update) {
   const record = records.find((item) => item.phones.includes(phone));
 
   if (!record) {
-    const encodedPhone = encodeURIComponent(phone);
     await sendBotMessage(chatId, [
       "Майстра з таким номером поки немає в базі.",
       "",
-      `Залишити рекомендацію: ${PUBLIC_SITE_URL}/submit.html?type=recommend&phone=${encodedPhone}`,
-      `Залишити скаргу: ${PUBLIC_SITE_URL}/submit.html?type=complaint&phone=${encodedPhone}`
-    ].join("\n"));
+      `Перевірений номер: ${formatPhone(phone)}`
+    ].join("\n"), notFoundKeyboard(phone));
     return;
   }
 
   const status = getMasterStatus(record);
-  const profileUrl = `${PUBLIC_SITE_URL}/profile.html?phone=${encodeURIComponent(phone)}`;
+  const profileUrl = siteUrl("/profile.html", { phone });
 
   await sendBotMessage(chatId, [
     "Знайдено майстра",
@@ -163,10 +166,8 @@ async function processTelegramUpdate(update) {
     `Рекомендацій: ${record.positive}`,
     `Скарг: ${record.negative}`,
     record.lastReviewAt ? `Останній відгук: ${record.lastReviewAt}` : "",
-    `Статус: ${status}`,
-    "",
-    `Профіль: ${profileUrl}`
-  ].filter(Boolean).join("\n"));
+    `Статус: ${status}`
+  ].filter(Boolean).join("\n"), foundKeyboard(phone, profileUrl));
 }
 
 function normalizeSubmission(payload) {
@@ -252,7 +253,7 @@ async function sendTelegram(submission) {
   }
 }
 
-async function sendBotMessage(chatId, text) {
+async function sendBotMessage(chatId, text, replyMarkup = null) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
   if (!token) {
@@ -266,7 +267,8 @@ async function sendBotMessage(chatId, text) {
       body: JSON.stringify({
         chat_id: chatId,
         text,
-        disable_web_page_preview: true
+        disable_web_page_preview: true,
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {})
       })
     });
 
@@ -275,6 +277,55 @@ async function sendBotMessage(chatId, text) {
     console.warn(`Telegram bot reply failed: ${error.message}`);
     return { sent: false };
   }
+}
+
+function mainMenuKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "Відкрити сайт", url: siteUrl("/") }],
+      [
+        { text: "Порекомендувати", url: siteUrl("/submit.html", { type: "recommend" }) },
+        { text: "Залишити скаргу", url: siteUrl("/submit.html", { type: "complaint" }) }
+      ],
+      [{ text: "Стати майстром", url: siteUrl("/submit.html", { type: "add" }) }]
+    ]
+  };
+}
+
+function notFoundKeyboard(phone) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "Залишити рекомендацію", url: siteUrl("/submit.html", { type: "recommend", phone }) },
+        { text: "Залишити скаргу", url: siteUrl("/submit.html", { type: "complaint", phone }) }
+      ],
+      [{ text: "Стати майстром", url: siteUrl("/submit.html", { type: "add", phone }) }]
+    ]
+  };
+}
+
+function foundKeyboard(phone, profileUrl) {
+  return {
+    inline_keyboard: [
+      [{ text: "Відкрити профіль", url: profileUrl }],
+      [
+        { text: "Додати рекомендацію", url: siteUrl("/submit.html", { type: "recommend", phone }) },
+        { text: "Залишити скаргу", url: siteUrl("/submit.html", { type: "complaint", phone }) }
+      ]
+    ]
+  };
+}
+
+function siteUrl(pathname, params = {}) {
+  const url = new URL(pathname, PUBLIC_SITE_URL);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  });
+
+  return url.toString();
 }
 
 async function loadPhoneRecords() {
@@ -516,7 +567,7 @@ function labelType(type) {
   const labels = {
     recommend: "Рекомендація",
     complaint: "Скарга",
-    add: "Додати майстра",
+    add: "Стати майстром",
     bot: "Telegram-бот",
     channel: "Telegram-канал"
   };

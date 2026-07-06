@@ -51,59 +51,82 @@
             <a data-link="telegramBot" href="#">Telegram-бот</a>
             <a data-link="recommend" href="#">Порекомендувати майстра</a>
             <a data-link="complaint" href="#">Залишити скаргу</a>
-            <a data-link="categories" href="#">Всі категорії</a>
-            <a data-link="addMaster" href="#">Додати майстра в таблицю</a>
+            <a data-link="categories" href="#">Всі послуги</a>
+            <a data-link="addMaster" href="#">Стати майстром</a>
           </nav>
         </div>
       </header>
 
       <main>
         <section class="hero" aria-labelledby="hero-title">
-          <p class="service-kicker">Перевір майстра перед ремонтом</p>
-          <h1 id="hero-title">Знайди майстра по номеру телефону</h1>
-          <p class="hero-copy">
-            Введи номер телефону майстра, бригади або підрядника — система перевірить,
-            чи є по ньому рекомендації або скарги від мешканців ЖК SVITLO PARK.
-          </p>
-
-          <form class="search-card" id="phone-search-form" novalidate>
-            <label class="field-label" for="phone-input">Номер телефону майстра</label>
-            <div class="search-row">
-              <input
-                id="phone-input"
-                name="phone"
-                type="tel"
-                inputmode="tel"
-                autocomplete="tel"
-                placeholder="+380 XX XXX XX XX"
-                aria-describedby="phone-help"
-              />
-              <button class="primary-button" id="search-button" type="submit">
-                Перевірити майстра
-              </button>
-            </div>
-            <p id="phone-help" class="field-help">
-              Можна вводити з пробілами, дужками або дефісами.
+          <div class="hero-main">
+            <p class="service-kicker">Black List Світло парк</p>
+            <h1 id="hero-title">Знайди майстра по номеру телефону</h1>
+            <p class="hero-copy">
+              Введи номер телефону майстра, бригади або підрядника — система перевірить,
+              чи є по ньому рекомендації або скарги від мешканців ЖК SVITLO PARK.
             </p>
-            <section
-              class="result-panel"
-              id="result-panel"
-              aria-live="polite"
-              aria-label="Результат пошуку"
-              tabindex="-1"
-              hidden
-            ></section>
-          </form>
+
+            <form class="search-card" id="phone-search-form" novalidate>
+              <label class="field-label" for="phone-input">Номер телефону майстра</label>
+              <div class="search-row">
+                <input
+                  id="phone-input"
+                  name="phone"
+                  type="tel"
+                  inputmode="tel"
+                  autocomplete="tel"
+                  placeholder="+380 XX XXX XX XX"
+                  aria-describedby="phone-help"
+                />
+                <button class="primary-button" id="search-button" type="submit">
+                  Перевірити
+                </button>
+              </div>
+              <p id="phone-help" class="field-help">
+                Можна вводити з пробілами, дужками або дефісами.
+              </p>
+              <div class="search-actions" aria-label="Швидкі дії">
+                <a data-link="recommend" href="#">Порекомендувати</a>
+                <a data-link="complaint" href="#">Залишити скаргу</a>
+                <a data-link="categories" href="#">Послуги</a>
+              </div>
+              <section
+                class="result-panel"
+                id="result-panel"
+                aria-live="polite"
+                aria-label="Результат пошуку"
+                tabindex="-1"
+                hidden
+              ></section>
+            </form>
+
+            <section class="complaint-strip" aria-labelledby="complaint-strip-title">
+              <div class="strip-heading">
+                <h2 id="complaint-strip-title">Останні скарги</h2>
+                <a data-link="complaint" href="#">Залишити скаргу</a>
+              </div>
+              <div class="complaint-marquee" id="complaint-ticker" aria-live="polite"></div>
+            </section>
+          </div>
+
+          <aside class="hero-banner" aria-label="ЖК SVITLO PARK">
+            <img src="assets/svitlopark-hero.avif" alt="ЖК SVITLO PARK" />
+            <div>
+              <span>SVITLO PARK</span>
+              <strong>Реєстр майстрів від мешканців</strong>
+            </div>
+          </aside>
         </section>
 
         <section class="directory-section" id="service-categories" aria-labelledby="categories-title">
           <div class="section-heading">
-            <p class="section-kicker">Категорії</p>
-            <h2 id="categories-title">Категорії послуг</h2>
-            <p id="data-summary">Завантажуємо тестові дані з листа Phones.</p>
+            <p class="section-kicker">Послуги</p>
+            <h2 id="categories-title">Послуги, які вже є в базі</h2>
+            <p id="data-summary">Завантажуємо дані з листа Phones.</p>
           </div>
           <label class="category-search" for="category-search-input">
-            <span>Пошук по категоріях</span>
+            <span>Пошук по послугах</span>
             <input
               id="category-search-input"
               type="search"
