@@ -343,10 +343,10 @@
     allCategories = categories;
     renderCategories(allCategories);
     recommendedList.innerHTML = recommended.length
-      ? recommended.map((master) => renderPersonCard(master)).join("")
+      ? recommended.map((master) => renderPersonCard(master, "good")).join("")
       : renderEmptyList("Поки немає майстрів із позитивними рекомендаціями.");
     blacklistList.innerHTML = blacklist.length
-      ? blacklist.map((master) => renderPersonRow(master, "warning")).join("")
+      ? blacklist.map((master) => renderPersonCard(master, "warning")).join("")
       : renderEmptyList("Поки немає записів зі скаргами.");
     renderComplaintTicker(blacklist);
   }
@@ -371,8 +371,10 @@
   }
 
   function renderCategoryCard(category) {
+    const categoryLink = `category.html?service=${encodeURIComponent(category.name)}`;
+
     return `
-      <a class="category-card" href="#recommended-title" data-category="${escapeAttribute(category.name)}" data-category-search="${escapeAttribute(normalizeSearch(category.name))}">
+      <a class="category-card" href="${escapeAttribute(categoryLink)}" data-category="${escapeAttribute(category.name)}" data-category-search="${escapeAttribute(normalizeSearch(category.name))}">
         <span class="category-icon" aria-hidden="true">${escapeHtml(getCategoryIcon(category.name))}</span>
         <strong>${escapeHtml(category.name)}</strong>
         <span>${category.total} ${pluralize(category.total, "майстер", "майстри", "майстрів")}</span>
@@ -381,14 +383,17 @@
     `;
   }
 
-  function renderPersonCard(master) {
+  function renderPersonCard(master, tone) {
     const phoneLabel = master.primaryPhone ? formatPhone(master.primaryPhone) : "Телефон не вказано";
-    const reviewText = master.lastReviewText || "Є позитивні відгуки від мешканців.";
+    const isWarning = tone === "warning";
+    const reviewText = master.lastReviewText || (isWarning
+      ? "Є скарги від мешканців."
+      : "Є позитивні відгуки від мешканців.");
     const profileLink = buildLink("profile", master.primaryPhone, master.record);
     const photos = master.workPhotoUrls.length ? master.workPhotoUrls : [master.workPhotoUrl];
 
     return `
-      <a class="person-card person-card--clickable" href="${escapeAttribute(profileLink)}">
+      <a class="person-card person-card--clickable person-card--${tone}" href="${escapeAttribute(profileLink)}">
         <div class="person-gallery" aria-label="Фото робіт">
           ${photos.slice(0, 4).map((photoUrl) => `
             <img src="${escapeAttribute(photoUrl)}" alt="${escapeAttribute(`Робота: ${master.categoryName}`)}" loading="lazy" />

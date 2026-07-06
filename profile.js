@@ -301,7 +301,6 @@
   }
 
   function renderProfile(record) {
-    const id = getField(record, fieldAliases.masterId);
     const name = getField(record, fieldAliases.displayName) || "Без назви";
     const categories = getCategories(record);
     const phones = getPhones(record);
@@ -325,7 +324,7 @@
           <p class="result-eyebrow">Профіль майстра</p>
           <h1>${escapeHtml(name)}</h1>
           <div class="profile-tags">
-            ${categories.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}
+            ${categories.map((category) => `<a href="category.html?service=${encodeURIComponent(category)}">${escapeHtml(category)}</a>`).join("")}
           </div>
           <strong class="status-pill ${status.className}">${escapeHtml(status.label)}</strong>
         </div>
@@ -376,12 +375,10 @@
       </section>
 
       <section class="profile-actions">
-        <a class="primary-result-action" href="${escapeAttribute(buildActionLink("recommend", primaryPhone))}">✅ Залишити рекомендацію</a>
-        <a class="warning-action" href="${escapeAttribute(buildActionLink("complaint", primaryPhone))}">⚠️ Залишити скаргу</a>
-        <a href="index.html">← Назад до пошуку</a>
+        <a class="primary-result-action" href="${escapeAttribute(buildActionLink("recommend", primaryPhone))}">Залишити рекомендацію</a>
+        <a class="warning-action" href="${escapeAttribute(buildActionLink("complaint", primaryPhone))}">Залишити скаргу</a>
+        <a href="index.html">Назад до пошуку</a>
       </section>
-
-      ${id ? `<p class="profile-note">ID: ${escapeHtml(id)}. Фото з Telegram можна підставляти у колонку <code>telegram_photo_url</code> або <code>master_photo_url</code>, коли буде серверна інтеграція.</p>` : ""}
     `;
   }
 

@@ -207,6 +207,98 @@ img {
   top: 62px;
 }
 
+.inner-page .page-shell {
+  width: 100%;
+  margin: 0;
+  padding: 0 0 40px;
+}
+
+.inner-page .site-header {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  z-index: 20;
+  width: min(calc(100% - 56px), 1560px);
+  padding: 0;
+  transform: translateX(-50%);
+}
+
+.inner-page .brand {
+  min-height: 54px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 8px 16px 8px 10px;
+}
+
+.header-link {
+  display: inline-flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 22px;
+}
+
+.header-link:hover {
+  background: #f36b00;
+}
+
+.inner-hero {
+  position: relative;
+  display: flex;
+  min-height: 390px;
+  align-items: end;
+  overflow: hidden;
+  border-radius: 0 0 24px 24px;
+  background-color: #75a8ce;
+  background-image: url("assets/svitlopark-hero-desktop.avif");
+  background-position: center 42%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  color: #ffffff;
+  padding: 132px max(28px, calc((100vw - 1160px) / 2)) 78px;
+}
+
+.inner-hero::before {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 34, 55, 0.18);
+  content: "";
+}
+
+.inner-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.inner-hero .service-kicker {
+  color: #ffffff;
+}
+
+.inner-hero h1 {
+  max-width: 900px;
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(48px, 7vw, 92px);
+  font-weight: 500;
+  line-height: 0.9;
+}
+
+.inner-hero p:last-child {
+  max-width: 620px;
+  margin: 18px 0 0;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .hero {
   position: relative;
   display: block;
@@ -219,7 +311,7 @@ img {
   background-repeat: no-repeat;
   background-size: cover;
   color: #ffffff;
-  padding: 122px 48px 42px;
+  padding: 108px 48px 34px;
 }
 
 .hero::before {
@@ -233,13 +325,12 @@ img {
 .hero-main {
   position: relative;
   z-index: 1;
-  display: grid;
-  width: min(100%, 1560px);
-  min-height: calc(100svh - 188px);
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
-  gap: clamp(32px, 6vw, 110px);
-  align-items: start;
+  display: flex;
+  width: min(100%, 980px);
+  flex-direction: column;
+  align-items: center;
   margin: 0 auto;
+  text-align: center;
 }
 
 .service-kicker,
@@ -272,14 +363,16 @@ h1 {
 }
 
 .hero-title-block {
-  align-self: center;
-  padding-bottom: 120px;
+  padding: 0;
 }
 
 .hero-title-block h1 {
-  display: grid;
-  font-size: clamp(88px, 11vw, 176px);
-  line-height: 0.78;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.22em;
+  font-size: clamp(58px, 7vw, 104px);
+  line-height: 0.86;
 }
 
 .hero-title-block h1 span {
@@ -287,30 +380,18 @@ h1 {
 }
 
 .hero-caption {
-  max-width: 430px;
-  margin: 34px 0 0;
+  max-width: 520px;
+  margin: 18px auto 0;
   color: #ffffff;
-  font-size: clamp(18px, 1.5vw, 24px);
+  font-size: clamp(18px, 1.7vw, 26px);
   font-weight: 700;
   line-height: 1.25;
 }
 
 .hero-tools {
+  width: min(100%, 820px);
   min-width: 0;
-  padding-top: 66px;
-}
-
-.hero-statement {
-  margin: 0;
-  color: #ffffff;
-  font-size: clamp(38px, 4.1vw, 64px);
-  font-weight: 500;
-  line-height: 0.98;
-  text-transform: uppercase;
-}
-
-.hero-statement strong {
-  font-weight: 500;
+  padding-top: 20px;
 }
 
 .hero-copy {
@@ -324,7 +405,7 @@ h1 {
 
 .search-card {
   width: 100%;
-  margin: 24px 0 0;
+  margin: 0;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -484,36 +565,6 @@ h1 {
   display: none;
 }
 
-.hero-neighborhood-note {
-  position: absolute;
-  bottom: 36px;
-  left: max(48px, calc((100vw - 1560px) / 2));
-  z-index: 1;
-  display: grid;
-  max-width: 420px;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.hero-neighborhood-note span {
-  border-radius: 999px;
-  background: #f36b00;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 850;
-  line-height: 1;
-  padding: 8px 10px;
-}
-
-.hero-neighborhood-note p {
-  margin: 0;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
 .result-eyebrow {
   margin: 0 0 8px;
   color: var(--blue);
@@ -630,13 +681,14 @@ h1 {
 }
 
 .complaint-strip {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  margin: 10px 0 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--text);
-  padding: 10px;
+  margin: 28px 0 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  padding: 0;
 }
 
 .strip-heading {
@@ -644,7 +696,8 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  width: min(calc(100% - 56px), 1560px);
+  margin: 0 auto 10px;
 }
 
 .strip-heading h2 {
@@ -665,6 +718,7 @@ h1 {
 }
 
 .complaint-marquee {
+  width: 100%;
   overflow: hidden;
 }
 
@@ -925,7 +979,8 @@ h1 {
   gap: 10px;
 }
 
-#recommended-list {
+#recommended-list,
+#blacklist-list {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -941,6 +996,14 @@ h1 {
 .person-card--clickable:hover,
 .person-row:hover {
   border-color: rgba(0, 117, 222, 0.28);
+}
+
+.person-card--warning {
+  border-color: rgba(232, 157, 1, 0.34);
+}
+
+.person-card--warning:hover {
+  border-color: var(--orange);
 }
 
 .person-gallery {
@@ -1006,6 +1069,20 @@ h1 {
 .person-score span + span {
   background: var(--paper);
   color: var(--muted);
+}
+
+.person-card--warning .person-score span:first-child {
+  background: var(--paper);
+  color: var(--muted);
+}
+
+.person-card--warning .person-score span:last-child {
+  background: var(--orange-soft);
+  color: #9c6500;
+}
+
+.person-card--warning .person-card-link {
+  color: #9c6500;
 }
 
 .person-card small {
@@ -1186,14 +1263,9 @@ h1 {
 }
 
 .text-page {
-  width: min(100%, 760px);
-  margin: 0 auto;
-  padding: 34px 18px;
-}
-
-.text-page h1 {
-  margin: 20px 0 18px;
-  font-size: clamp(34px, 7vw, 46px);
+  width: min(calc(100% - 44px), 760px);
+  margin: 42px auto 0;
+  padding: 0 0 34px;
 }
 
 .text-page p {
@@ -1208,6 +1280,10 @@ h1 {
 }
 
 .profile-root {
+  position: relative;
+  z-index: 2;
+  width: min(calc(100% - 44px), 1160px);
+  margin: -56px auto 0;
   padding-bottom: 34px;
 }
 
@@ -1222,7 +1298,7 @@ h1 {
 }
 
 .profile-loading {
-  padding: 22px;
+  padding: 28px;
 }
 
 .profile-loading h1 {
@@ -1241,7 +1317,7 @@ h1 {
   grid-template-columns: 118px minmax(0, 1fr);
   gap: 18px;
   align-items: center;
-  padding: 18px;
+  padding: 24px;
 }
 
 .profile-avatar {
@@ -1276,7 +1352,7 @@ h1 {
   margin-bottom: 12px;
 }
 
-.profile-tags span {
+.profile-tags a {
   border-radius: 999px;
   background: var(--paper);
   color: var(--text);
@@ -1446,19 +1522,22 @@ h1 {
 }
 
 .submit-page {
-  padding: 10px 0 24px;
+  padding: 0 0 32px;
 }
 
 .submit-hero {
+  justify-content: center;
   text-align: center;
 }
 
 .form-card {
+  position: relative;
+  z-index: 2;
   display: grid;
   gap: 16px;
-  width: min(100%, 720px);
-  margin: 28px auto 0;
-  padding: 18px;
+  width: min(calc(100% - 44px), 720px);
+  margin: -58px auto 0;
+  padding: 22px;
 }
 
 .form-card label {
@@ -1532,6 +1611,33 @@ h1 {
   color: var(--blue);
 }
 
+.category-content {
+  width: min(calc(100% - 44px), 1160px);
+  margin: 52px auto 0;
+  padding-bottom: 34px;
+}
+
+.category-results {
+  padding: 0;
+}
+
+.category-people {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.category-other-services {
+  margin-top: 56px;
+}
+
+.category-grid--compact .category-card {
+  flex-basis: 176px;
+}
+
+.category-card--active {
+  outline: 3px solid #f36b00;
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -1585,6 +1691,48 @@ h1 {
     top: 56px;
   }
 
+  .inner-page .page-shell {
+    padding: 0 0 28px;
+  }
+
+  .inner-page .site-header {
+    top: 12px;
+    width: calc(100% - 24px);
+    padding: 0;
+  }
+
+  .inner-page .brand {
+    min-height: 48px;
+    padding: 6px 12px 6px 7px;
+  }
+
+  .inner-page .brand-mark {
+    width: 34px;
+    height: 34px;
+  }
+
+  .header-link {
+    min-height: 48px;
+    font-size: 13px;
+    padding: 0 16px;
+  }
+
+  .inner-hero {
+    min-height: 330px;
+    border-radius: 0 0 18px 18px;
+    background-image: url("assets/svitlopark-hero.avif");
+    background-position: center bottom;
+    padding: 104px 20px 52px;
+  }
+
+  .inner-hero h1 {
+    font-size: clamp(46px, 15vw, 66px);
+  }
+
+  .inner-hero p:last-child {
+    font-size: 15px;
+  }
+
   .hero {
     min-height: auto;
     border-radius: 0 0 18px 18px;
@@ -1594,9 +1742,9 @@ h1 {
   }
 
   .hero-main {
-    display: block;
+    display: flex;
     min-height: 0;
-    text-align: left;
+    text-align: center;
   }
 
   .hero-title-block {
@@ -1610,7 +1758,7 @@ h1 {
 
   .hero-caption {
     max-width: 280px;
-    margin-top: 14px;
+    margin: 14px auto 0;
     font-size: 15px;
   }
 
@@ -1630,6 +1778,11 @@ h1 {
 
   .search-card {
     margin-top: 0;
+    text-align: left;
+  }
+
+  .strip-heading {
+    width: calc(100% - 28px);
   }
 
   .search-row {
@@ -1655,7 +1808,8 @@ h1 {
   }
 
   .section-heading--row,
-  #recommended-list {
+  #recommended-list,
+  #blacklist-list {
     display: grid;
     grid-template-columns: 1fr;
   }
@@ -1681,6 +1835,33 @@ h1 {
   .profile-avatar {
     width: 96px;
     height: 96px;
+  }
+
+  .profile-root,
+  .category-content {
+    width: calc(100% - 28px);
+  }
+
+  .profile-root {
+    margin-top: -34px;
+  }
+
+  .category-content {
+    margin-top: 36px;
+  }
+
+  .category-people {
+    grid-template-columns: 1fr;
+  }
+
+  .form-card {
+    width: calc(100% - 28px);
+    margin-top: -34px;
+    padding: 16px;
+  }
+
+  .text-page {
+    width: calc(100% - 36px);
   }
 }
 
