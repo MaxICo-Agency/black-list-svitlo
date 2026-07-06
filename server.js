@@ -112,9 +112,26 @@ async function handleTelegramWebhook(request, response) {
 async function processTelegramUpdate(update) {
   const message = update.message || update.edited_message;
   const chatId = message?.chat?.id;
+
+  if (!chatId) {
+    return;
+  }
+
+  if (hasTelegramAttachment(message)) {
+    const relayed = await relayTelegramAttachmentToAdmin(message);
+    await sendBotMessage(
+      chatId,
+      relayed
+        ? "Фото отримано і передано на модерацію. Якщо потрібно, додай ще номер майстра текстом."
+        : "Фото отримано, але модераційний чат ще не підключений. Надішли, будь ласка, номер або опис текстом.",
+      mainMenuKeyboard()
+    );
+    return;
+  }
+
   const text = clean(message?.text, 1000);
 
-  if (!chatId || !text) {
+  if (!text) {
     return;
   }
 
@@ -124,6 +141,7 @@ async function processTelegramUpdate(update) {
       "",
       "Надішли номер телефону майстра, бригади або підрядника.",
       "Я перевірю, чи є по ньому рекомендації або скарги від мешканців ЖК SVITLO PARK.",
+      "Фото робіт або скарги можна надіслати сюди окремим повідомленням — я передам їх на модерацію.",
       "",
       "Приклад: +380 67 111 22 33"
     ].join("\n"), mainMenuKeyboard());
@@ -133,6 +151,18 @@ async function processTelegramUpdate(update) {
   const phone = normalizePhone(text);
 
   if (!/^\+380\d{9}$/.test(phone)) {
+    if (shouldRelayFreeformTelegramText(text)) {
+      const relayed = await relayTelegramTextToAdmin(message, text);
+      await sendBotMessage(
+        chatId,
+        relayed
+          ? "Повідомлення отримано і передано на модерацію. Для швидкої перевірки майстра надішли номер телефону."
+          : "Надішли номер у форматі +380 XX XXX XX XX або 067 XXX XX XX.",
+        mainMenuKeyboard()
+      );
+      return;
+    }
+
     await sendBotMessage(
       chatId,
       "Надішли номер у форматі +380 XX XXX XX XX або 067 XXX XX XX.",
@@ -207,10 +237,9 @@ function validateSubmission(submission) {
 }
 
 async function sendTelegram(submission) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
-  if (!token || !chatId) {
+  if (!process.env.TELEGRAM_BOT_TOKEN || !chatId) {
     return { sent: false, skipped: true };
   }
 
@@ -229,66 +258,162 @@ async function sendTelegram(submission) {
     `ID: ${submission.id}`
   ].filter(Boolean).join("\n");
 
+  const result = await telegramRequest("sendMessage", {
+    chat_id: chatId,
+    text: message,
+    disable_web_page_preview: true,
+    reply_markup: submissionKeyboard(submission)
+  });
+
+  return { sent: result.ok };
+}
+
+async function sendBotMessage(chatId, text, replyMarkup = null) {
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    return { sent: false, skipped: true };
+  }
+
+  const result = await telegramRequest("sendMessage", {
+    chat_id: chatId,
+    text,
+    disable_web_page_preview: true,
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  });
+
+  return { sent: result.ok };
+}
+
+async function relayTelegramAttachmentToAdmin(message) {
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!process.env.TELEGRAM_BOT_TOKEN || !chatId) {
+    return false;
+  }
+
+  const caption = clean(message.caption, 1000);
+  const intro = [
+    "Фото/файл у Telegram-боті",
+    `Від: ${describeTelegramSender(message)}`,
+    caption ? `Підпис: ${caption}` : "",
+    "",
+    "Оригінал нижче скопійовано в цей чат."
+  ].filter(Boolean).join("\n");
+
+  await sendBotMessage(chatId, intro);
+  const result = await telegramRequest("copyMessage", {
+    chat_id: chatId,
+    from_chat_id: message.chat.id,
+    message_id: message.message_id
+  });
+
+  return result.ok;
+}
+
+async function relayTelegramTextToAdmin(message, text) {
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!process.env.TELEGRAM_BOT_TOKEN || !chatId) {
+    return false;
+  }
+
+  const result = await sendBotMessage(chatId, [
+    "Повідомлення у Telegram-боті",
+    `Від: ${describeTelegramSender(message)}`,
+    "",
+    text
+  ].join("\n"));
+
+  return result.sent;
+}
+
+async function telegramRequest(method, payload) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token) {
+    return { ok: false, skipped: true };
+  }
+
   try {
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        disable_web_page_preview: true
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!telegramResponse.ok) {
       const text = await telegramResponse.text();
-      console.warn(`Telegram send failed: ${telegramResponse.status} ${text.slice(0, 160)}`);
-      return { sent: false };
+      console.warn(`Telegram ${method} failed: ${telegramResponse.status} ${text.slice(0, 160)}`);
+      return { ok: false };
     }
 
-    return { sent: true };
+    const data = await telegramResponse.json().catch(() => ({}));
+    return { ok: true, data };
   } catch (error) {
-    console.warn(`Telegram send failed: ${error.message}`);
-    return { sent: false };
+    console.warn(`Telegram ${method} failed: ${error.message}`);
+    return { ok: false };
   }
 }
 
-async function sendBotMessage(chatId, text, replyMarkup = null) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+function hasTelegramAttachment(message) {
+  return Boolean(
+    (Array.isArray(message?.photo) && message.photo.length) ||
+    (message?.document?.mime_type && message.document.mime_type.startsWith("image/"))
+  );
+}
 
-  if (!token) {
-    return { sent: false, skipped: true };
+function shouldRelayFreeformTelegramText(text) {
+  const digits = String(text || "").replace(/\D/g, "");
+  return text.length >= 8 && digits.length < 6;
+}
+
+function describeTelegramSender(message) {
+  const from = message.from || {};
+  const name = [from.first_name, from.last_name].filter(Boolean).join(" ").trim();
+  const username = from.username ? `@${from.username}` : "";
+  const chat = message.chat?.username ? `@${message.chat.username}` : `chat ${message.chat?.id || "невідомий"}`;
+
+  return [name, username, chat].filter(Boolean).join(" · ");
+}
+
+function submissionKeyboard(submission) {
+  const rows = [];
+
+  if (submission.phone) {
+    rows.push([{ text: "Відкрити профіль", url: siteUrl("/profile.html", { phone: submission.phone }) }]);
   }
 
-  try {
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        disable_web_page_preview: true,
-        ...(replyMarkup ? { reply_markup: replyMarkup } : {})
-      })
-    });
+  rows.push([
+    { text: "Рекомендація", url: siteUrl("/submit.html", { type: "recommend", phone: submission.phone }) },
+    { text: "Скарга", url: siteUrl("/submit.html", { type: "complaint", phone: submission.phone }) }
+  ]);
 
-    return { sent: telegramResponse.ok };
-  } catch (error) {
-    console.warn(`Telegram bot reply failed: ${error.message}`);
-    return { sent: false };
+  rows.push([{ text: "Відкрити сайт", url: siteUrl("/") }]);
+
+  const botUrl = telegramBotUrl("photo");
+  if (botUrl) {
+    rows.push([{ text: "Фото через бота", url: botUrl }]);
   }
+
+  return { inline_keyboard: rows };
 }
 
 function mainMenuKeyboard() {
+  const botUrl = telegramBotUrl("photo");
+  const rows = [
+    [{ text: "Відкрити сайт", url: siteUrl("/") }],
+    [
+      { text: "Порекомендувати", url: siteUrl("/submit.html", { type: "recommend" }) },
+      { text: "Залишити скаргу", url: siteUrl("/submit.html", { type: "complaint" }) }
+    ],
+    [{ text: "Стати майстром", url: siteUrl("/submit.html", { type: "add" }) }]
+  ];
+
+  if (botUrl) {
+    rows.push([{ text: "Надіслати фото", url: botUrl }]);
+  }
+
   return {
-    inline_keyboard: [
-      [{ text: "Відкрити сайт", url: siteUrl("/") }],
-      [
-        { text: "Порекомендувати", url: siteUrl("/submit.html", { type: "recommend" }) },
-        { text: "Залишити скаргу", url: siteUrl("/submit.html", { type: "complaint" }) }
-      ],
-      [{ text: "Стати майстром", url: siteUrl("/submit.html", { type: "add" }) }]
-    ]
+    inline_keyboard: rows
   };
 }
 
@@ -325,6 +450,20 @@ function siteUrl(pathname, params = {}) {
     }
   });
 
+  return url.toString();
+}
+
+function telegramBotUrl(startPayload = "") {
+  const username = clean(process.env.TELEGRAM_BOT_USERNAME, 80).replace(/^@/, "");
+
+  if (!username) {
+    return "";
+  }
+
+  const url = new URL(`https://t.me/${username}`);
+  if (startPayload) {
+    url.searchParams.set("start", startPayload);
+  }
   return url.toString();
 }
 

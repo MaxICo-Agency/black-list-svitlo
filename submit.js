@@ -95,7 +95,7 @@
       updatePage(payload.type);
       showStatus(
         result.telegramSent
-          ? "Готово. Заявку прийнято і відправлено в Telegram."
+          ? "Готово. Заявку прийнято і відправлено в Telegram. Фото можна додати окремо через бота."
           : "Готово. Заявку прийнято на сервері, Telegram-відправка ще не підключена.",
         "success"
       );
@@ -120,7 +120,7 @@
       text: clean(data.get("text")),
       authorName: clean(data.get("authorName")) || "Анонімно",
       authorContact: clean(data.get("authorContact")),
-      photoUrl: clean(data.get("photoUrl")),
+      photoUrl: "",
       sourceUrl: window.location.href,
       userAgent: navigator.userAgent
     };

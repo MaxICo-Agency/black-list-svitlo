@@ -42,6 +42,8 @@ phonesCsvUrl: "https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=c
 Кнопки рекомендації, скарги й додавання майстра ведуть на `submit.html`.
 На серверному деплої форма відправляє JSON у `POST /api/submissions`.
 Сервер зберігає заявки у `runtime/submissions.jsonl`.
+Фото робіт або скарг не завантажуються в Google Drive: користувач надсилає їх
+окремо в Telegram-бот, а бот копіює фото в модераційний Telegram-чат.
 
 Telegram-відправка вмикається через env:
 
@@ -58,6 +60,7 @@ TELEGRAM_WEBHOOK_SECRET=
 Бот: `@bl_svitlopark_bot`.
 Webhook endpoint: `POST /api/telegram/webhook`.
 Бот відповідає на `/start`, `/help` і номер телефону у форматі `+380...` або `067...`.
+Також бот приймає фото або зображення-файли й пересилає їх на модерацію.
 
 ## Деплой
 
