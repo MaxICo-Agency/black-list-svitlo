@@ -412,7 +412,7 @@
       <section class="profile-loading">
         <p class="result-eyebrow">Помилка</p>
         <h1>Не вдалося завантажити профіль</h1>
-        <p>Перевір доступ до Google Sheets або спробуй пізніше.</p>
+        <p>Не вдалося завантажити базу. Спробуй пізніше.</p>
       </section>
     `;
   }

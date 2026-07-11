@@ -1,10 +1,10 @@
 window.CHSP_CONFIG = {
-  // Public CSV export for the Google Sheets Phones sheet.
-  phonesCsvUrl: "https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0",
+  // Server combines the base Google Sheet with moderator-approved submissions.
+  phonesCsvUrl: "/api/phones",
   submissionApiUrl: "/api/submissions",
   links: {
     telegramBot: "https://t.me/bl_svitlopark_bot",
-    telegramChannel: "submit.html?type=channel",
+    telegramChannel: "https://t.me/blacklist_svitlopark",
     recommend: "submit.html?type=recommend",
     complaint: "submit.html?type=complaint",
     addMaster: "submit.html?type=add",

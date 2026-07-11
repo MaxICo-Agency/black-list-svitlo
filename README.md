@@ -6,19 +6,37 @@
 
 Детальний аналіз поточної моделі та наступного кроку: `SYSTEM_ANALYSIS.md`.
 
-## Google Sheets
+## Дані
 
-Пошук і списки на головній читають публічний CSV листа `Phones` у Google Sheets:
+Браузер читає `GET /api/phones`. Сервер об'єднує базовий Google Sheets CSV із
+заявками, які адміністратор підтвердив у Telegram-групі. Тому схвалений запис
+одразу з'являється в пошуку, профілях, послугах і списках на головній.
 
-```js
-phonesCsvUrl: "https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0"
-```
+Локальний `data/phones.csv` залишається резервною копією, якщо Google Sheets
+тимчасово недоступний. Базовий URL задається лише на сервері через
+`PHONES_CSV_URL`; у клієнтському `config.js` він не публікується.
 
-Локальний файл `data/phones.csv` залишено як резервну тестову копію з такою самою структурою. Якщо буде інша Google Sheets таблиця, опублікуй лист `Phones` як CSV і заміни URL у `config.js`:
+Приватна нормалізована база:
+`https://docs.google.com/spreadsheets/d/1gjqPYDe6IUTdhFgLhLWTD-hkgyHZ0RMjVNVBpqXyfxo`.
+Вона належить підключеному Drive-акаунту `all@maxico.agency` і має вкладки:
 
-```js
-phonesCsvUrl: "https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=csv&gid=<PHONES_GID>"
-```
+- `Masters` - одна картка майстра або бригади;
+- `PhoneNumbers` - багато номерів для одного `master_id`;
+- `Categories` - довідник послуг;
+- `MasterCategories` - багато послуг для одного майстра;
+- `Reviews` - кожен відгук окремим рядком;
+- `Photos` - фото робіт і відгуків;
+- `Directory` - сумісний матеріалізований каталог;
+- `ModerationQueue` і `Settings` - черга та системні параметри.
+
+Станом на 2026-07-11 продакшн повертає 20 записів: 12 базових і 8
+унікальних рекомендацій, які були перевірені в Telegram-чатах, схвалені
+у приватній групі модерації та опубліковані в `@blacklist_svitlopark`. Ці ж
+дані синхронізовано в приватну таблицю: 20 майстрів, 26 номерів і 44 окремих
+відгуки.
+
+Поточний продакшн поки читає старий публічний CSV. Для переходу на приватну
+базу VPS потрібен Google service account із read-доступом.
 
 Очікувані колонки листа:
 
@@ -41,7 +59,8 @@ phonesCsvUrl: "https://docs.google.com/spreadsheets/d/<SHEET_ID>/export?format=c
 
 Кнопки рекомендації, скарги й додавання майстра ведуть на `submit.html`.
 На серверному деплої форма відправляє JSON у `POST /api/submissions`.
-Сервер зберігає заявки у `runtime/submissions.jsonl`.
+Сервер зберігає заявки у `runtime/submissions.jsonl`, а рішення модератора - у
+`runtime/moderation-events.jsonl`.
 Фото робіт або скарг не завантажуються в Google Drive: користувач надсилає їх
 окремо в Telegram-бот, а бот копіює фото в модераційний Telegram-чат.
 
@@ -52,15 +71,24 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_BOT_USERNAME=bl_svitlopark_bot
 TELEGRAM_CHAT_ID=
 TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_ADMIN_USER_ID=
+TELEGRAM_PUBLIC_CHAT_ID=
+TELEGRAM_PUBLIC_URL=https://t.me/blacklist_svitlopark
 ```
 
 Якщо ці значення порожні, заявка все одно зберігається на сервері, але не
 відправляється в Telegram.
 
 Бот: `@bl_svitlopark_bot`.
+Публічний канал: `@blacklist_svitlopark`.
 Webhook endpoint: `POST /api/telegram/webhook`.
-Бот відповідає на `/start`, `/help` і номер телефону у форматі `+380...` або `067...`.
-Також бот приймає фото або зображення-файли й пересилає їх на модерацію.
+Бот відповідає на `/start`, `/search`, `/categories`, `/blacklist`,
+`/recommend`, `/complaint`, `/channel`, `/help` і номер телефону у форматі
+`+380...` або `067...`.
+
+У приватній групі модератор натискає `Додати до бази` або `Відхилити`.
+Підтверджена заявка одразу потрапляє в API сайту та публічний канал. Фото з
+deep-link `photo_<submission_id>` копіюються в модераційну групу з ID заявки.
 
 ## Деплой
 
@@ -70,7 +98,7 @@ Webhook endpoint: `POST /api/telegram/webhook`.
 docker compose up -d --build
 ```
 
-Основний домен після DNS: `https://bl-svitlopark.maxicolabs.com/`.
+Основний домен: `https://bl-svitlopark.maxicolabs.com/`.
 Тестовий домен до налаштування DNS: `https://bl-svitlopark.13.140.186.201.sslip.io/`.
 
 Для фінального домену потрібен DNS A-запис:

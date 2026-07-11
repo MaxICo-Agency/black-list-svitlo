@@ -7,9 +7,13 @@ const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = __dirname;
 const RUNTIME_DIR = process.env.RUNTIME_DIR || path.join(__dirname, "runtime");
 const SUBMISSIONS_FILE = path.join(RUNTIME_DIR, "submissions.jsonl");
+const MODERATION_EVENTS_FILE = path.join(RUNTIME_DIR, "moderation-events.jsonl");
 const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "https://bl-svitlopark.maxicolabs.com";
 const PHONES_CSV_URL = process.env.PHONES_CSV_URL || "https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0";
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
+const TELEGRAM_ADMIN_USER_ID = String(process.env.TELEGRAM_ADMIN_USER_ID || "");
+const TELEGRAM_PUBLIC_CHAT_ID = String(process.env.TELEGRAM_PUBLIC_CHAT_ID || "");
+const TELEGRAM_PUBLIC_URL = process.env.TELEGRAM_PUBLIC_URL || "";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -28,6 +32,8 @@ const mimeTypes = {
 
 const allowedTypes = new Set(["recommend", "complaint", "add", "bot", "channel"]);
 let phoneRecordsCache = { loadedAt: 0, records: [] };
+let basePhoneRowsCache = { loadedAt: 0, rows: [] };
+const pendingPhotoSubmissionIds = new Map();
 
 const server = http.createServer(async (request, response) => {
   try {
@@ -35,6 +41,10 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === "GET" && url.pathname === "/health") {
       return sendJson(response, 200, { ok: true, service: "bl-svitlopark" });
+    }
+
+    if (url.pathname === "/api/phones") {
+      return handlePhonesData(request, response);
     }
 
     if (url.pathname === "/api/submissions") {
@@ -92,6 +102,26 @@ async function handleSubmission(request, response) {
   });
 }
 
+async function handlePhonesData(request, response) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return sendJson(response, 405, { error: "method_not_allowed" });
+  }
+
+  const rows = await loadPublishedPhoneRows();
+  const csv = stringifyCsv(rows);
+
+  response.writeHead(200, {
+    "Content-Type": "text/csv; charset=utf-8",
+    "Cache-Control": "no-cache"
+  });
+
+  if (request.method !== "HEAD") {
+    response.end(csv);
+  } else {
+    response.end();
+  }
+}
+
 async function handleTelegramWebhook(request, response) {
   if (request.method !== "POST") {
     return sendJson(response, 405, { error: "method_not_allowed" });
@@ -110,6 +140,11 @@ async function handleTelegramWebhook(request, response) {
 }
 
 async function processTelegramUpdate(update) {
+  if (update.callback_query) {
+    await processTelegramCallback(update.callback_query);
+    return;
+  }
+
   const message = update.message || update.edited_message;
   const chatId = message?.chat?.id;
 
@@ -118,11 +153,12 @@ async function processTelegramUpdate(update) {
   }
 
   if (hasTelegramAttachment(message)) {
-    const relayed = await relayTelegramAttachmentToAdmin(message);
+    const submissionId = pendingPhotoSubmissionIds.get(String(chatId)) || "";
+    const relayed = await relayTelegramAttachmentToAdmin(message, submissionId);
     await sendBotMessage(
       chatId,
       relayed
-        ? "Фото отримано і передано на модерацію. Якщо потрібно, додай ще номер майстра текстом."
+        ? `Фото отримано і передано на модерацію${submissionId ? ` до заявки ${submissionId.slice(0, 8)}` : ""}. Можна надіслати ще фото.`
         : "Фото отримано, але модераційний чат ще не підключений. Надішли, будь ласка, номер або опис текстом.",
       mainMenuKeyboard()
     );
@@ -135,7 +171,22 @@ async function processTelegramUpdate(update) {
     return;
   }
 
-  if (text.startsWith("/start") || text.startsWith("/help")) {
+  const [rawCommand, startPayload = ""] = text.split(/\s+/, 2);
+  const command = rawCommand.replace(/@\w+$/, "").toLowerCase();
+
+  if (command === "/start" || command === "/help") {
+    const photoMatch = startPayload.match(/^photo_([a-f0-9-]{36})$/i);
+    if (photoMatch) {
+      pendingPhotoSubmissionIds.set(String(chatId), photoMatch[1]);
+      await sendBotMessage(chatId, [
+        "Фото до заявки",
+        "",
+        `Заявка: ${photoMatch[1].slice(0, 8)}`,
+        "Надішли фото наступним повідомленням. Я привʼяжу його до заявки і передам у групу модерації."
+      ].join("\n"), mainMenuKeyboard());
+      return;
+    }
+
     await sendBotMessage(chatId, [
       "Black List Світло парк",
       "",
@@ -145,6 +196,40 @@ async function processTelegramUpdate(update) {
       "",
       "Приклад: +380 67 111 22 33"
     ].join("\n"), mainMenuKeyboard());
+    return;
+  }
+
+  if (command === "/categories") {
+    await sendBotMessage(chatId, "Усі послуги та майстри відкриваються на сайті.", categoriesKeyboard());
+    return;
+  }
+
+  if (command === "/search") {
+    await sendBotMessage(
+      chatId,
+      "Надішли номер майстра у форматі +380 XX XXX XX XX або 067 XXX XX XX.",
+      mainMenuKeyboard()
+    );
+    return;
+  }
+
+  if (command === "/blacklist") {
+    await sendBotMessage(chatId, "Останні записи зі скаргами є у розділі Black List.", blacklistKeyboard());
+    return;
+  }
+
+  if (command === "/channel") {
+    await sendBotMessage(chatId, "У публічному каналі виходять перевірені рекомендації та скарги.", publicChannelKeyboard());
+    return;
+  }
+
+  if (command === "/recommend" || command === "/complaint") {
+    const type = command === "/recommend" ? "recommend" : "complaint";
+    await sendBotMessage(
+      chatId,
+      type === "recommend" ? "Відкрий форму рекомендації." : "Відкрий форму скарги.",
+      submissionTypeKeyboard(type)
+    );
     return;
   }
 
@@ -200,6 +285,93 @@ async function processTelegramUpdate(update) {
   ].filter(Boolean).join("\n"), foundKeyboard(phone, profileUrl));
 }
 
+async function processTelegramCallback(callback) {
+  const callbackId = callback.id;
+  const data = clean(callback.data, 100);
+  const match = data.match(/^(approve|reject):([a-f0-9-]{36})$/i);
+  const userId = String(callback.from?.id || "");
+  const chatId = String(callback.message?.chat?.id || "");
+
+  if (!match) {
+    await answerTelegramCallback(callbackId, "Невідома дія.");
+    return;
+  }
+
+  if (!TELEGRAM_ADMIN_USER_ID || userId !== TELEGRAM_ADMIN_USER_ID || chatId !== String(process.env.TELEGRAM_CHAT_ID || "")) {
+    await answerTelegramCallback(callbackId, "Ця дія доступна тільки адміністратору.", true);
+    return;
+  }
+
+  const action = match[1].toLowerCase();
+  const submissionId = match[2];
+  const submission = await findSubmissionById(submissionId);
+
+  if (!submission) {
+    await answerTelegramCallback(callbackId, "Заявку не знайдено.", true);
+    return;
+  }
+
+  if (action === "approve" && !/^\+380\d{9}$/.test(normalizePhone(submission.phone || submission.rawPhone))) {
+    await answerTelegramCallback(callbackId, "Перед додаванням у базу вкажи коректний номер телефону.", true);
+    return;
+  }
+
+  const currentStatus = await getModerationStatus(submissionId);
+  if (currentStatus === "approved" || currentStatus === "rejected") {
+    await answerTelegramCallback(
+      callbackId,
+      currentStatus === "approved" ? "Заявку вже додано до бази." : "Заявку вже відхилено."
+    );
+    return;
+  }
+
+  const status = action === "approve" ? "approved" : "rejected";
+  const publicResult = status === "approved"
+    ? await publishApprovedSubmission(submission)
+    : { sent: false, skipped: true };
+  const event = {
+    submissionId,
+    status,
+    reviewedBy: userId,
+    reviewedAt: new Date().toISOString(),
+    telegramMessageId: callback.message?.message_id || "",
+    publicMessageId: publicResult.messageId || ""
+  };
+
+  await fs.mkdir(RUNTIME_DIR, { recursive: true });
+  await fs.appendFile(MODERATION_EVENTS_FILE, `${JSON.stringify(event)}\n`, "utf8");
+  invalidatePhoneCaches();
+
+  const statusLine = status === "approved"
+    ? `Статус: додано до бази і вже доступно в пошуку${publicResult.sent ? " та публічному каналі" : ""}.`
+    : "Статус: відхилено модератором.";
+  const sourceText = clean(callback.message?.text, 3600).replace(/\n\nСтатус:.*$/s, "");
+
+  await telegramRequest("editMessageText", {
+    chat_id: callback.message.chat.id,
+    message_id: callback.message.message_id,
+    text: `${sourceText}\n\n${statusLine}`,
+    disable_web_page_preview: true,
+    reply_markup: submissionKeyboard(submission, { moderated: true })
+  });
+  await answerTelegramCallback(
+    callbackId,
+    status === "approved" ? "Додано до бази." : "Заявку відхилено."
+  );
+}
+
+async function answerTelegramCallback(callbackId, text, showAlert = false) {
+  if (!callbackId) {
+    return;
+  }
+
+  await telegramRequest("answerCallbackQuery", {
+    callback_query_id: callbackId,
+    text,
+    show_alert: showAlert
+  });
+}
+
 function normalizeSubmission(payload) {
   return {
     type: clean(payload.type, 40),
@@ -207,6 +379,7 @@ function normalizeSubmission(payload) {
     rawPhone: clean(payload.rawPhone, 64),
     masterName: clean(payload.masterName, 160),
     category: clean(payload.category, 120),
+    telegramUsername: normalizeTelegramUsername(payload.telegramUsername),
     text: clean(payload.text, 2000),
     authorName: clean(payload.authorName, 120) || "Анонімно",
     authorContact: clean(payload.authorContact, 160),
@@ -249,6 +422,7 @@ async function sendTelegram(submission) {
     `Телефон: ${submission.phone || submission.rawPhone || "не вказано"}`,
     `Майстер: ${submission.masterName || "не вказано"}`,
     `Категорія: ${submission.category || "не вказано"}`,
+    submission.telegramUsername ? `Telegram: ${submission.telegramUsername}` : "",
     `Автор: ${submission.authorName}`,
     `Контакт: ${submission.authorContact || "не вказано"}`,
     submission.photoUrl ? `Фото: ${submission.photoUrl}` : "",
@@ -268,6 +442,57 @@ async function sendTelegram(submission) {
   return { sent: result.ok };
 }
 
+async function publishApprovedSubmission(submission) {
+  if (!process.env.TELEGRAM_BOT_TOKEN || !TELEGRAM_PUBLIC_CHAT_ID) {
+    return { sent: false, skipped: true };
+  }
+
+  const phone = normalizePhone(submission.phone || submission.rawPhone);
+  const isComplaint = submission.type === "complaint";
+  const isRecommendation = submission.type === "recommend";
+  const heading = isComplaint
+    ? "Користувацька скарга"
+    : isRecommendation
+      ? "Рекомендація мешканця"
+      : "Новий контакт майстра";
+  const marker = isComplaint ? "#скарга" : isRecommendation ? "#рекомендація" : "#майстер";
+  const message = [
+    heading,
+    "",
+    `Майстер: ${submission.masterName || "імʼя не вказано"}`,
+    `Послуги: ${submission.category || "не вказано"}`,
+    `Телефон: ${formatPhone(phone)}`,
+    submission.telegramUsername ? `Telegram: ${submission.telegramUsername}` : "",
+    "",
+    submission.text,
+    "",
+    isComplaint
+      ? "Це опис користувацького досвіду, а не встановлений платформою факт порушення."
+      : "Запис перевірено модератором перед публікацією.",
+    marker
+  ].join("\n");
+  const profileUrl = siteUrl("/profile.html", { phone });
+  const result = await telegramRequest("sendMessage", {
+    chat_id: TELEGRAM_PUBLIC_CHAT_ID,
+    text: message,
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "Відкрити профіль", url: profileUrl }],
+        [
+          { text: "Перевірити інший номер", url: telegramBotUrl() },
+          { text: "Відкрити сайт", url: siteUrl("/") }
+        ]
+      ]
+    }
+  });
+
+  return {
+    sent: result.ok,
+    messageId: result.data?.result?.message_id || ""
+  };
+}
+
 async function sendBotMessage(chatId, text, replyMarkup = null) {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
     return { sent: false, skipped: true };
@@ -283,7 +508,7 @@ async function sendBotMessage(chatId, text, replyMarkup = null) {
   return { sent: result.ok };
 }
 
-async function relayTelegramAttachmentToAdmin(message) {
+async function relayTelegramAttachmentToAdmin(message, submissionId = "") {
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
   if (!process.env.TELEGRAM_BOT_TOKEN || !chatId) {
@@ -294,6 +519,7 @@ async function relayTelegramAttachmentToAdmin(message) {
   const intro = [
     "Фото/файл у Telegram-боті",
     `Від: ${describeTelegramSender(message)}`,
+    submissionId ? `Заявка: ${submissionId}` : "Заявка: не привʼязана",
     caption ? `Підпис: ${caption}` : "",
     "",
     "Оригінал нижче скопійовано в цей чат."
@@ -375,8 +601,15 @@ function describeTelegramSender(message) {
   return [name, username, chat].filter(Boolean).join(" · ");
 }
 
-function submissionKeyboard(submission) {
+function submissionKeyboard(submission, options = {}) {
   const rows = [];
+
+  if (!options.moderated) {
+    rows.push([
+      { text: "Додати до бази", callback_data: `approve:${submission.id}` },
+      { text: "Відхилити", callback_data: `reject:${submission.id}` }
+    ]);
+  }
 
   if (submission.phone) {
     rows.push([{ text: "Відкрити профіль", url: siteUrl("/profile.html", { phone: submission.phone }) }]);
@@ -389,9 +622,9 @@ function submissionKeyboard(submission) {
 
   rows.push([{ text: "Відкрити сайт", url: siteUrl("/") }]);
 
-  const botUrl = telegramBotUrl("photo");
+  const botUrl = telegramBotUrl(`photo_${submission.id}`);
   if (botUrl) {
-    rows.push([{ text: "Фото через бота", url: botUrl }]);
+    rows.push([{ text: "Додати фото до заявки", url: botUrl }]);
   }
 
   return { inline_keyboard: rows };
@@ -401,6 +634,10 @@ function mainMenuKeyboard() {
   const botUrl = telegramBotUrl("photo");
   const rows = [
     [{ text: "Відкрити сайт", url: siteUrl("/") }],
+    [
+      { text: "Усі послуги", url: siteUrl("/#service-categories") },
+      { text: "Black List", url: siteUrl("/#blacklist") }
+    ],
     [
       { text: "Порекомендувати", url: siteUrl("/submit.html", { type: "recommend" }) },
       { text: "Залишити скаргу", url: siteUrl("/submit.html", { type: "complaint" }) }
@@ -412,8 +649,42 @@ function mainMenuKeyboard() {
     rows.push([{ text: "Надіслати фото", url: botUrl }]);
   }
 
+  if (TELEGRAM_PUBLIC_URL) {
+    rows.push([{ text: "Публічний канал", url: TELEGRAM_PUBLIC_URL }]);
+  }
+
   return {
     inline_keyboard: rows
+  };
+}
+
+function categoriesKeyboard() {
+  return {
+    inline_keyboard: [[{ text: "Відкрити всі послуги", url: siteUrl("/#service-categories") }]]
+  };
+}
+
+function blacklistKeyboard() {
+  return {
+    inline_keyboard: [[{ text: "Відкрити Black List", url: siteUrl("/#blacklist") }]]
+  };
+}
+
+function publicChannelKeyboard() {
+  return {
+    inline_keyboard: [[{
+      text: "Відкрити канал",
+      url: TELEGRAM_PUBLIC_URL || siteUrl("/")
+    }]]
+  };
+}
+
+function submissionTypeKeyboard(type) {
+  return {
+    inline_keyboard: [[{
+      text: type === "recommend" ? "Порекомендувати майстра" : "Залишити скаргу",
+      url: siteUrl("/submit.html", { type })
+    }]]
   };
 }
 
@@ -474,12 +745,199 @@ async function loadPhoneRecords() {
     return phoneRecordsCache.records;
   }
 
-  const response = await fetch(PHONES_CSV_URL, { cache: "no-store" });
-  const csv = response.ok ? await response.text() : await fs.readFile(path.join(STATIC_DIR, "data", "phones.csv"), "utf8");
-  const records = parseCsv(csv).map(normalizePhoneRecord).filter((record) => record.phones.length);
+  const rows = await loadPublishedPhoneRows();
+  const records = rows.map(normalizePhoneRecord).filter((record) => record.phones.length);
 
   phoneRecordsCache = { loadedAt: now, records };
   return records;
+}
+
+async function loadBasePhoneRows() {
+  const now = Date.now();
+
+  if (basePhoneRowsCache.rows.length && now - basePhoneRowsCache.loadedAt < 60_000) {
+    return basePhoneRowsCache.rows.map((row) => ({ ...row }));
+  }
+
+  let csv = "";
+  try {
+    const response = await fetch(PHONES_CSV_URL, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`sheet_fetch_failed_${response.status}`);
+    }
+    csv = await response.text();
+  } catch (error) {
+    console.warn(`Phones sheet fallback: ${error.message}`);
+    csv = await fs.readFile(path.join(STATIC_DIR, "data", "phones.csv"), "utf8");
+  }
+
+  const rows = parseCsv(csv);
+  basePhoneRowsCache = { loadedAt: now, rows };
+  return rows.map((row) => ({ ...row }));
+}
+
+async function loadPublishedPhoneRows() {
+  const rows = await loadBasePhoneRows();
+  const [submissions, events] = await Promise.all([
+    readJsonLines(SUBMISSIONS_FILE),
+    readJsonLines(MODERATION_EVENTS_FILE)
+  ]);
+  const latestStatus = new Map();
+
+  events.forEach((event) => {
+    if (event.submissionId && event.status) {
+      latestStatus.set(event.submissionId, event.status);
+    }
+  });
+
+  submissions
+    .filter((submission) => latestStatus.get(submission.id) === "approved")
+    .forEach((submission) => applyApprovedSubmission(rows, submission));
+
+  return rows;
+}
+
+function applyApprovedSubmission(rows, submission) {
+  const phone = normalizePhone(submission.phone || submission.rawPhone);
+  if (!/^\+380\d{9}$/.test(phone)) {
+    return;
+  }
+
+  let row = rows.find((item) => rowPhones(item).includes(phone));
+  if (!row) {
+    row = createPhoneRow(submission, phone);
+    rows.push(row);
+  }
+
+  if (!row.display_name && submission.masterName) {
+    row.display_name = submission.masterName;
+  }
+
+  if (submission.category) {
+    const categories = Array.from(new Set([
+      ...splitMulti(row.category_names || row.category_name),
+      ...splitMulti(submission.category)
+    ]));
+    row.category_name = row.category_name || categories[0] || "Послуга не вказана";
+    row.category_names = categories.join("; ");
+  }
+
+  if (!row.telegram_username && submission.telegramUsername) {
+    row.telegram_username = submission.telegramUsername;
+  }
+
+  if (submission.type !== "recommend" && submission.type !== "complaint") {
+    return;
+  }
+
+  const reviewType = submission.type === "complaint" ? "complaint" : "recommendation";
+  const countField = reviewType === "complaint" ? "negative_reviews_count" : "positive_reviews_count";
+  row[countField] = String((Number(row[countField]) || 0) + 1);
+  row.last_review_at = String(submission.createdAt || "").slice(0, 10);
+  row.last_review_text = submission.text;
+
+  for (let index = 5; index >= 2; index -= 1) {
+    ["author", "type", "date", "text", "photo_url"].forEach((field) => {
+      row[`review_${index}_${field}`] = row[`review_${index - 1}_${field}`] || "";
+    });
+  }
+
+  row.review_1_author = "Анонімно";
+  row.review_1_type = reviewType;
+  row.review_1_date = row.last_review_at;
+  row.review_1_text = submission.text;
+  row.review_1_photo_url = submission.photoUrl || "";
+}
+
+function createPhoneRow(submission, phone) {
+  const category = submission.category || "Послуга не вказана";
+  return {
+    master_id: `submission-${String(submission.id || randomUUID()).slice(0, 8)}`,
+    display_name: submission.masterName || `Майстер ${formatPhone(phone)}`,
+    category_name: category,
+    category_names: category,
+    primary_phone: phone,
+    phone_numbers: phone,
+    telegram_username: submission.telegramUsername || "",
+    master_photo_url: "",
+    positive_reviews_count: "0",
+    negative_reviews_count: "0",
+    last_review_at: "",
+    last_review_text: "",
+    work_photo_url: "",
+    work_photo_urls: "",
+    profile_url: ""
+  };
+}
+
+function rowPhones(row) {
+  return splitMulti(row.primary_phone || row.phone || row.phone_numbers || row.phones)
+    .concat(splitMulti(row.phone_numbers || row.phones))
+    .map(normalizePhone)
+    .filter((phone, index, list) => /^\+380\d{9}$/.test(phone) && list.indexOf(phone) === index);
+}
+
+async function findSubmissionById(submissionId) {
+  const submissions = await readJsonLines(SUBMISSIONS_FILE);
+  return submissions.find((submission) => submission.id === submissionId) || null;
+}
+
+async function getModerationStatus(submissionId) {
+  const events = await readJsonLines(MODERATION_EVENTS_FILE);
+  return events.reduce((status, event) => (
+    event.submissionId === submissionId && event.status ? event.status : status
+  ), "");
+}
+
+async function readJsonLines(filePath) {
+  try {
+    const content = await fs.readFile(filePath, "utf8");
+    return content
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+function invalidatePhoneCaches() {
+  phoneRecordsCache = { loadedAt: 0, records: [] };
+}
+
+function stringifyCsv(rows) {
+  if (!rows.length) {
+    return "";
+  }
+
+  const headers = [];
+  rows.forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (!headers.includes(key)) {
+        headers.push(key);
+      }
+    });
+  });
+
+  return [
+    headers.map(escapeCsvCell).join(","),
+    ...rows.map((row) => headers.map((header) => escapeCsvCell(row[header] || "")).join(","))
+  ].join("\n") + "\n";
+}
+
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 function normalizePhoneRecord(row) {
@@ -579,6 +1037,11 @@ function normalizePhone(value) {
   }
 
   return `+${digits}`;
+}
+
+function normalizeTelegramUsername(value) {
+  const match = clean(value, 80).match(/^(?:https?:\/\/t\.me\/)?@?([A-Za-z0-9_]{5,32})$/i);
+  return match ? `@${match[1]}` : "";
 }
 
 function formatPhone(phone) {

@@ -93,12 +93,7 @@
       form.reset();
       typeSelect.value = payload.type;
       updatePage(payload.type);
-      showStatus(
-        result.telegramSent
-          ? "Готово. Заявку прийнято і відправлено в Telegram. Фото можна додати окремо через бота."
-          : "Готово. Заявку прийнято на сервері, Telegram-відправка ще не підключена.",
-        "success"
-      );
+      showSubmissionSuccess(result);
     } catch (error) {
       showStatus(
         "Не вдалося відправити заявку. Якщо сайт відкритий не з основного домену, спробуй після деплою на сервер.",
@@ -181,5 +176,25 @@
   function showStatus(message, tone) {
     status.textContent = message;
     status.className = `form-status form-status--${tone}`;
+  }
+
+  function showSubmissionSuccess(result) {
+    status.textContent = result.telegramSent
+      ? "Готово. Заявку передано в групу модерації."
+      : "Готово. Заявку збережено на сервері.";
+    status.className = "form-status form-status--success";
+
+    if (!result.id) {
+      return;
+    }
+
+    const botUrl = new URL(config.links?.telegramBot || "https://t.me/bl_svitlopark_bot");
+    botUrl.searchParams.set("start", `photo_${result.id}`);
+    const link = document.createElement("a");
+    link.href = botUrl.toString();
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "Додати фото до цієї заявки";
+    status.append(document.createElement("br"), link);
   }
 })();

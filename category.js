@@ -263,7 +263,7 @@
       renderServices(categories, service);
     } catch (error) {
       title.textContent = "Не вдалося завантажити послугу";
-      copy.textContent = "Перевір доступ до Google Sheets або спробуй пізніше.";
+      copy.textContent = "Не вдалося завантажити базу. Спробуй пізніше.";
       peopleRoot.innerHTML = '<p class="empty-list">Дані тимчасово недоступні.</p>';
     }
   }

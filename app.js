@@ -339,7 +339,7 @@
       .sort((a, b) => toDateValue(b.lastReviewAt) - toDateValue(a.lastReviewAt) || b.negative - a.negative)
       .slice(0, 6);
 
-    dataSummary.textContent = `${records.length} записів у базі. Послуги і списки читають один лист Phones.`;
+    dataSummary.textContent = `${records.length} записів у базі. Нові відгуки зʼявляються після модерації.`;
     allCategories = categories;
     renderCategories(allCategories);
     recommendedList.innerHTML = recommended.length
@@ -476,7 +476,7 @@
   }
 
   function renderHomepageLoading() {
-    dataSummary.textContent = "Завантажуємо дані з листа Phones.";
+    dataSummary.textContent = "Завантажуємо перевірені записи.";
     categoriesList.innerHTML = renderEmptyList("Завантажуємо послуги...");
     recommendedList.innerHTML = renderEmptyList("Завантажуємо рекомендації...");
     blacklistList.innerHTML = renderEmptyList("Завантажуємо black list...");
@@ -487,8 +487,8 @@
 
   function renderHomepageError(error) {
     const message = error.message === "missing_sheet_url"
-      ? "Потрібно додати CSV URL листа Phones у config.js."
-      : "Не вдалося завантажити лист Phones.";
+      ? "Не налаштовано джерело даних."
+      : "Не вдалося завантажити базу.";
 
     dataSummary.textContent = message;
     categoriesList.innerHTML = renderEmptyList(message);
@@ -591,7 +591,7 @@
     resultPanel.innerHTML = `
       <p class="result-eyebrow">Пошук</p>
       <h2 class="result-title">Перевіряємо ${escapeHtml(formatPhone(phone))}</h2>
-      <p class="result-message">Шукаємо номер у Google Sheets.</p>
+      <p class="result-message">Шукаємо номер у перевіреній базі.</p>
     `;
     showResultPanel();
   }
@@ -665,13 +665,13 @@
       <p class="result-eyebrow">Пошук недоступний</p>
       <h2 class="result-title">${
         isMissingSheet
-          ? "Google Sheets ще не підключено."
-          : "Не вдалося отримати дані з Google Sheets."
+          ? "Джерело даних ще не підключено."
+          : "Не вдалося отримати дані з бази."
       }</h2>
       <p class="result-message">${
         isMissingSheet
-          ? "Додай CSV-посилання листа Phones у config.js."
-          : "Спробуй ще раз трохи пізніше або перевір публічний доступ до листа Phones."
+          ? "Перевір налаштування джерела даних."
+          : "Спробуй ще раз трохи пізніше."
       }</p>
     `;
     showResultPanel();
