@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="76" height="76" viewBox="0 0 76 76" role="img" aria-label="Black List Світло парк">
-  <rect width="76" height="76" rx="16" fill="#FFFFFF"/>
-  <rect x="1" y="1" width="74" height="74" rx="15" fill="none" stroke="#E5E7EB" stroke-width="2"/>
-  <path d="M21 41.5 33.5 29 43 38.5 55.5 26" fill="none" stroke="#2563EB" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="22" cy="52" r="5" fill="#16A34A"/>
-  <circle cx="53" cy="52" r="5" fill="#F59E0B"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Black List Світло парк">
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="#111111"/>
+  <path d="M17 14V50M17 14H28.5C35 14 39 17.5 39 23C39 28.5 35 32 28.5 32H17M28.5 32C36 32 41 35.5 41 41C41 46.5 36 50 28.5 50H17" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M47 14V50H54" stroke="#F36B00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

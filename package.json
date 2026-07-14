@@ -5,6 +5,6 @@
   "description": "Black List Світло парк website and submission server",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check app.js && node --check category.js && node --check profile.js && node --check submit.js && node --check config.js && node --check server.js"
+    "check": "node --check app.js && node --check category.js && node --check directory.js && node --check profile.js && node --check submit.js && node --check config.js && node --check server.js"
   }
 }

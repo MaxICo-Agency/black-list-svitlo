@@ -3,66 +3,51 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Майстри за послугою у Black List Світло парк: рекомендації, скарги та контакти."
-    />
-    <title>Послуга | Black List Світло парк</title>
-    <link rel="icon" href="assets/svitlopark-mark.svg" />
+    <meta name="description" content="Майстри за послугою у Black List Світло парк." />
+    <title>Послуги | Black List Світло парк</title>
+    <link rel="icon" href="/assets/svitlopark-mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css?v=20260710-1" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260714-1" />
   </head>
-  <body class="inner-page category-page">
-    <div class="page-shell">
-      <header class="site-header" aria-label="Навігація послуги">
-        <a class="brand" href="index.html" aria-label="Black List Світло парк">
-          <img class="brand-mark" src="assets/svitlopark-mark.svg" alt="" />
-          <span>
-            <strong>Black List Світло парк</strong>
-            <small>Майстри за послугою</small>
-          </span>
-        </a>
-        <a class="header-link" href="index.html#service-categories">Усі послуги</a>
-      </header>
+  <body class="inner-page">
+    <header class="site-header inner-header">
+      <a class="brand" href="/" aria-label="Black List Світло парк">
+        <img class="brand-mark" src="/assets/svitlopark-mark.svg" alt="" />
+        <span><strong>Black List Світло парк</strong><small>Послуги</small></span>
+      </a>
+      <a class="header-link" href="/#service-categories">Усі послуги</a>
+    </header>
 
-      <section class="inner-hero category-hero" aria-labelledby="category-title">
-        <div>
-          <p class="service-kicker">Послуга у SVITLO PARK</p>
-          <h1 id="category-title">Завантажуємо...</h1>
-          <p id="category-copy">Шукаємо майстрів у базі.</p>
-        </div>
+    <main class="inner-content">
+      <section class="inner-title">
+        <p class="section-kicker">Послуга у SVITLO PARK</p>
+        <h1 id="category-title">Усі послуги</h1>
+        <p id="category-copy">Обери послугу або переглянь усіх майстрів.</p>
       </section>
 
-      <main class="category-content">
-        <section class="category-results" aria-labelledby="category-results-title">
-          <div class="section-heading section-heading--row">
-            <div>
-              <p class="section-kicker">Майстри</p>
-              <h2 id="category-results-title">Результати</h2>
-            </div>
-            <a class="section-link" data-link="recommend" href="#">Порекомендувати майстра</a>
-          </div>
-          <div class="people-list category-people" id="category-people" aria-live="polite">
-            <p class="empty-list">Завантажуємо майстрів...</p>
-          </div>
-        </section>
+      <section class="category-browser" aria-labelledby="category-services-title">
+        <div class="section-heading section-heading--row">
+          <div><p class="section-kicker">Навігація</p><h2 id="category-services-title">Послуги</h2></div>
+          <label class="category-search" for="category-page-search">
+            <span class="sr-only">Пошук послуги</span>
+            <input id="category-page-search" type="search" placeholder="Знайти послугу" />
+          </label>
+        </div>
+        <div class="category-strip" id="category-services"></div>
+      </section>
 
-        <section class="category-other-services" aria-labelledby="other-services-title">
-          <div class="section-heading">
-            <p class="section-kicker">Інші послуги</p>
-            <h2 id="other-services-title">Перейти до іншої послуги</h2>
-          </div>
-          <div class="category-grid category-grid--compact" id="category-services"></div>
-        </section>
-      </main>
-    </div>
+      <section class="category-results" aria-labelledby="category-results-title">
+        <div class="section-heading section-heading--row">
+          <div><p class="section-kicker">Майстри</p><h2 id="category-results-title">Результати</h2></div>
+          <a class="section-link section-link--primary" data-link="recommend" href="#">Порекомендувати</a>
+        </div>
+        <div class="people-list" id="category-people" aria-live="polite"><p class="empty-list">Завантажуємо...</p></div>
+      </section>
+    </main>
 
-    <script src="config.js?v=20260710-1"></script>
-    <script src="category.js?v=20260710-1"></script>
+    <script src="/config.js?v=20260714-1"></script>
+    <script src="/category.js?v=20260714-1"></script>
   </body>
 </html>

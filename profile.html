@@ -3,59 +3,34 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Профіль майстра у Black List Світло парк: телефони, категорії, рекомендації, скарги та фото робіт."
-    />
+    <meta name="description" content="Профіль майстра у Black List Світло парк: контакти, послуги, рекомендації та скарги." />
     <meta property="og:title" content="Профіль майстра | Black List Світло парк" />
-    <meta
-      property="og:description"
-      content="Телефони, категорії, рекомендації, скарги та фото робіт майстра."
-    />
-    <meta property="og:image" content="https://bl-svitlopark.maxicolabs.com/assets/cover.png" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://bl-svitlopark.maxicolabs.com/" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:description" content="Контакти, рекомендації, скарги та фото, додані мешканцями." />
+    <meta property="og:image" content="https://bl-svitlopark.maxicolabs.com/assets/bot-avatar.png" />
     <title>Профіль майстра | Black List Світло парк</title>
-    <link rel="icon" href="assets/svitlopark-mark.svg" />
+    <link rel="icon" href="/assets/svitlopark-mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="styles.css?v=20260710-1" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260714-1" />
   </head>
-  <body class="inner-page profile-page">
-    <div class="page-shell">
-      <header class="site-header" aria-label="Навігація профілю">
-        <a class="brand" href="index.html" aria-label="Black List Світло парк">
-          <img class="brand-mark" src="assets/svitlopark-mark.svg" alt="" />
-          <span>
-            <strong>Black List Світло парк</strong>
-            <small>Профіль майстра</small>
-          </span>
-        </a>
-        <a class="header-link" href="index.html">На головну</a>
-      </header>
+  <body class="inner-page">
+    <header class="site-header inner-header">
+      <a class="brand" href="/" aria-label="Black List Світло парк">
+        <img class="brand-mark" src="/assets/svitlopark-mark.svg" alt="" />
+        <span><strong>Black List Світло парк</strong><small>Профіль майстра</small></span>
+      </a>
+      <a class="header-link" href="/">До пошуку</a>
+    </header>
 
-      <section class="inner-hero profile-banner" aria-labelledby="profile-page-title">
-        <div>
-          <p class="service-kicker">Black List Світло парк</p>
-          <h1 id="profile-page-title">Профіль майстра</h1>
-          <p>Контакти, послуги, фото робіт і досвід мешканців.</p>
-        </div>
+    <main id="profile-root" class="inner-content profile-root" aria-live="polite">
+      <section class="profile-loading">
+        <p class="section-kicker">Профіль</p>
+        <h1>Завантажуємо майстра...</h1>
       </section>
+    </main>
 
-      <main id="profile-root" class="profile-root" aria-live="polite">
-        <section class="profile-loading">
-          <p class="result-eyebrow">Профіль</p>
-          <h1>Завантажуємо майстра...</h1>
-        </section>
-      </main>
-    </div>
-
-    <script src="config.js?v=20260710-1"></script>
-    <script src="profile.js?v=20260710-1"></script>
+    <script src="/config.js?v=20260714-1"></script>
+    <script src="/profile.js?v=20260714-1"></script>
   </body>
 </html>

@@ -1,15 +1,15 @@
 window.CHSP_CONFIG = {
-  // Server combines the base Google Sheet with moderator-approved submissions.
   phonesCsvUrl: "/api/phones",
-  submissionApiUrl: "/api/submissions",
   links: {
-    telegramBot: "https://t.me/bl_svitlopark_bot",
-    telegramChannel: "https://t.me/blacklist_svitlopark",
-    recommend: "submit.html?type=recommend",
-    complaint: "submit.html?type=complaint",
-    addMaster: "submit.html?type=add",
+    telegramBot: "https://telegram.me/bl_svitlopark_bot",
+    telegramChannel: "https://telegram.me/blacklist_svitlopark",
+    recommend: "https://telegram.me/bl_svitlopark_bot?start=recommend",
+    complaint: "https://telegram.me/bl_svitlopark_bot?start=complaint",
+    addMaster: "https://telegram.me/bl_svitlopark_bot?start=add",
     categories: "#service-categories",
-    rules: "rules.html",
-    privacy: "privacy.html"
+    recommendations: "/recommendations",
+    complaints: "/complaints",
+    rules: "/rules",
+    privacy: "/privacy"
   }
 };

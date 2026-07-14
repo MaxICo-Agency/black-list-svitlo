@@ -7,7 +7,7 @@ services:
       PORT: "3000"
       RUNTIME_DIR: /app/runtime
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://bl-svitlopark.maxicolabs.com}
-      PHONES_CSV_URL: ${PHONES_CSV_URL:-https://docs.google.com/spreadsheets/d/1nUh-orSW5NA7F0_sCdcNm3folUEhQeZWS72RoD8nvDE/export?format=csv&gid=0}
+      PHONES_CSV_URL: ${PHONES_CSV_URL:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}

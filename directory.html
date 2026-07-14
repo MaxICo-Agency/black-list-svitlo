@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Усі схвалені рекомендації та скарги у Black List Світло парк." />
+    <title>Рекомендації | Black List Світло парк</title>
+    <link rel="icon" href="/assets/svitlopark-mark.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260714-1" />
+  </head>
+  <body class="inner-page">
+    <header class="site-header inner-header">
+      <a class="brand" href="/" aria-label="Black List Світло парк">
+        <img class="brand-mark" src="/assets/svitlopark-mark.svg" alt="" />
+        <span><strong>Black List Світло парк</strong><small id="directory-brand-label">Рекомендації</small></span>
+      </a>
+      <a class="header-link" href="/">До пошуку</a>
+    </header>
+
+    <main class="inner-content">
+      <section class="inner-title">
+        <p class="section-kicker" id="directory-kicker">Перевірений досвід мешканців</p>
+        <h1 id="directory-title">Усі рекомендації</h1>
+        <p id="directory-copy">Записи, які пройшли модерацію.</p>
+      </section>
+
+      <section class="directory-page-list">
+        <div class="section-heading section-heading--row">
+          <label class="directory-search" for="directory-search-input">
+            <span class="sr-only">Пошук майстра</span>
+            <input id="directory-search-input" type="search" placeholder="Імʼя, номер або послуга" />
+          </label>
+          <a class="section-link section-link--primary" id="directory-action" href="#">Додати рекомендацію</a>
+        </div>
+        <div class="people-list" id="directory-list" aria-live="polite"><p class="empty-list">Завантажуємо...</p></div>
+      </section>
+    </main>
+
+    <script src="/config.js?v=20260714-1"></script>
+    <script src="/directory.js?v=20260714-1"></script>
+  </body>
+</html>

@@ -3,201 +3,177 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8fa" />
     <meta
       name="description"
-      content="Black List Світло парк: перевірка майстрів, бригад і підрядників по номеру телефону."
+      content="Black List Світло парк — пошук рекомендацій і скарг на майстрів за номером телефону."
     />
     <meta property="og:title" content="Black List Світло парк" />
-    <meta
-      property="og:description"
-      content="Перевір майстра перед ремонтом по номеру телефону."
-    />
-    <meta property="og:image" content="https://bl-svitlopark.maxicolabs.com/assets/cover.png" />
+    <meta property="og:description" content="Перевір майстра перед ремонтом." />
+    <meta property="og:image" content="https://bl-svitlopark.maxicolabs.com/assets/bot-avatar.png" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://bl-svitlopark.maxicolabs.com/" />
-    <meta name="twitter:card" content="summary_large_image" />
     <title>Black List Світло парк</title>
-    <link rel="icon" href="assets/svitlopark-mark.svg" />
+    <link rel="icon" href="/assets/svitlopark-mark.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260710-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260714-1" />
   </head>
   <body class="home-page">
-    <div class="page-shell">
-      <header class="site-header" aria-label="Головна навігація">
-        <a class="brand" href="index.html" aria-label="Black List Світло парк">
-          <img class="brand-mark" src="assets/svitlopark-mark.svg" alt="" />
+    <section class="home-hero" aria-labelledby="hero-title">
+      <div class="home-hero__shade"></div>
+
+      <header class="site-header site-header--hero">
+        <a class="brand" href="/" aria-label="Black List Світло парк">
+          <img class="brand-mark" src="/assets/svitlopark-mark.svg" alt="" />
           <span>
             <strong>Black List Світло парк</strong>
             <small>Перевір майстра перед ремонтом</small>
           </span>
         </a>
-        <div class="header-menu">
-          <button
-            class="menu-button"
-            id="menu-button"
-            type="button"
-            aria-expanded="false"
-            aria-controls="site-menu"
-            aria-label="Відкрити меню"
-          >
-            ⋯
-          </button>
-          <nav class="site-menu" id="site-menu" aria-label="Дії сайту" hidden>
-            <a data-link="telegramBot" href="#">Telegram-бот</a>
-            <a data-link="recommend" href="#">Порекомендувати майстра</a>
-            <a data-link="complaint" href="#">Залишити скаргу</a>
-            <a data-link="categories" href="#">Всі послуги</a>
-            <a data-link="addMaster" href="#">Стати майстром</a>
-          </nav>
-        </div>
+
+        <button
+          class="menu-button"
+          id="menu-button"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-menu"
+          aria-label="Відкрити меню"
+          title="Меню"
+        >
+          <span aria-hidden="true">•••</span>
+        </button>
+
+        <nav class="site-menu" id="site-menu" hidden aria-label="Головне меню">
+          <a data-link="telegramBot" href="#">Telegram-бот</a>
+          <a data-link="recommend" href="#">Порекомендувати майстра</a>
+          <a data-link="complaint" href="#">Залишити скаргу</a>
+          <a data-link="categories" href="#">Усі послуги</a>
+          <a data-link="addMaster" href="#">Стати майстром</a>
+        </nav>
       </header>
 
-      <main>
-        <section class="hero" aria-labelledby="hero-title">
-          <div class="hero-main">
-            <div class="hero-title-block">
-              <p class="service-kicker">Сусідський досвід перед ремонтом</p>
-              <h1 id="hero-title">
-                <span>BLACK</span>
-                <span>LIST</span>
-              </h1>
-              <p class="hero-caption">Перевір майстра перед ремонтом</p>
-            </div>
+      <div class="hero-search-wrap">
+        <div class="hero-copy">
+          <p>Сусідський досвід перед ремонтом</p>
+          <h1 id="hero-title">Знайди майстра по номеру телефону</h1>
+          <span>Рекомендації та скарги мешканців ЖК SVITLO PARK після модерації.</span>
+        </div>
 
-            <div class="hero-tools">
-              <form class="search-card" id="phone-search-form" novalidate>
-                <div class="search-card-heading">
-                  <span>01 / Пошук</span>
-                  <h2>Знайди майстра по номеру телефону</h2>
-                </div>
-                <p class="hero-copy">
-                  Введи номер майстра, бригади або підрядника — перевіримо рекомендації
-                  та скарги від мешканців.
-                </p>
-                <label class="field-label" for="phone-input">Номер телефону</label>
-                <div class="search-row">
-                  <input
-                    id="phone-input"
-                    name="phone"
-                    type="tel"
-                    inputmode="tel"
-                    autocomplete="tel"
-                    placeholder="+380 XX XXX XX XX"
-                    aria-describedby="phone-help"
-                  />
-                  <button class="primary-button" id="search-button" type="submit">
-                    Перевірити
-                  </button>
-                </div>
-                <p id="phone-help" class="field-help">
-                  Пробіли, дужки й дефіси можна залишити.
-                </p>
-                <div class="search-actions" aria-label="Швидкі дії">
-                  <a data-link="recommend" href="#">Порекомендувати</a>
-                  <a data-link="complaint" href="#">Залишити скаргу</a>
-                  <a data-link="categories" href="#">Послуги</a>
-                </div>
-                <section
-                  class="result-panel"
-                  id="result-panel"
-                  aria-live="polite"
-                  aria-label="Результат пошуку"
-                  tabindex="-1"
-                  hidden
-                ></section>
-              </form>
+        <section class="search-panel" aria-label="Пошук майстра">
+          <form id="phone-search-form" novalidate>
+            <label for="phone-input">Номер телефону майстра</label>
+            <div class="search-row">
+              <input
+                id="phone-input"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="+380 XX XXX XX XX"
+                aria-describedby="phone-help"
+              />
+              <button class="primary-button" id="search-button" type="submit">Перевірити</button>
             </div>
+            <p class="field-help" id="phone-help">Пробіли, дужки й дефіси можна залишити.</p>
+          </form>
+
+          <div class="search-actions" aria-label="Швидкі дії">
+            <a data-link="recommend" href="#">Порекомендувати</a>
+            <a data-link="complaint" href="#">Залишити скаргу</a>
+            <a data-link="categories" href="#">Послуги</a>
           </div>
 
-          <section class="complaint-strip" aria-labelledby="complaint-strip-title">
-            <div class="strip-heading">
-              <h2 id="complaint-strip-title">Останні скарги</h2>
-              <a data-link="complaint" href="#">Додати скаргу</a>
-            </div>
-            <div class="complaint-marquee" id="complaint-ticker" aria-live="polite"></div>
-          </section>
+          <div class="result-panel" id="result-panel" hidden aria-live="polite"></div>
         </section>
+      </div>
 
-        <section class="directory-section directory-section--services" id="service-categories" aria-labelledby="categories-title">
-          <div class="section-heading">
+      <section class="complaint-preview" id="latest-complaints" hidden aria-labelledby="latest-complaints-title">
+        <div class="complaint-preview__head">
+          <h2 id="latest-complaints-title">Останні скарги</h2>
+          <a data-link="complaints" href="/complaints">Усі скарги</a>
+        </div>
+        <div class="complaint-preview__list" id="complaint-ticker"></div>
+      </section>
+    </section>
+
+    <main>
+      <section class="content-band services-band" id="service-categories" aria-labelledby="services-title">
+        <div class="section-heading section-heading--row">
+          <div>
             <p class="section-kicker">Послуги</p>
-            <h2 id="categories-title">Що потрібно зробити?</h2>
-            <p id="data-summary">Завантажуємо перевірені записи.</p>
+            <h2 id="services-title">Що потрібно зробити?</h2>
           </div>
           <label class="category-search" for="category-search-input">
-            <span>Пошук по послугах</span>
-            <input
-              id="category-search-input"
-              type="search"
-              inputmode="search"
-              autocomplete="off"
-              placeholder="Наприклад: електрика, сантехніка, плитка"
-            />
+            <span class="sr-only">Пошук послуги</span>
+            <input id="category-search-input" type="search" placeholder="Наприклад, електрика" />
           </label>
-          <div class="category-grid" id="categories-list" aria-live="polite"></div>
-        </section>
+        </div>
+        <div class="category-strip" id="categories-list" aria-live="polite"></div>
+        <p class="data-summary" id="data-summary">Завантажуємо записи.</p>
+      </section>
 
-        <section class="directory-section" aria-labelledby="recommended-title">
-          <div class="section-heading section-heading--row">
-            <div>
-              <p class="section-kicker section-kicker--green">Рекомендації</p>
-              <h2 id="recommended-title">Кого рекомендують</h2>
-            </div>
-            <a class="section-link" data-link="recommend" href="#">Додати рекомендацію</a>
+      <section class="content-band directory-band" aria-labelledby="recommended-title">
+        <div class="section-heading section-heading--row">
+          <div>
+            <p class="section-kicker">Рекомендації мешканців</p>
+            <h2 id="recommended-title">Кого рекомендують</h2>
           </div>
-          <div class="people-list" id="recommended-list" aria-live="polite"></div>
-        </section>
+          <div class="section-actions">
+            <a class="section-link" data-link="recommendations" href="/recommendations">Усі рекомендації</a>
+            <a class="section-link section-link--primary" data-link="recommend" href="#">Додати</a>
+          </div>
+        </div>
+        <div class="people-list" id="recommended-list" aria-live="polite"></div>
+      </section>
 
-        <section class="directory-section" id="blacklist" aria-labelledby="blacklist-title">
-          <div class="section-heading section-heading--row">
-            <div>
-              <p class="section-kicker section-kicker--orange">Black list</p>
-              <h2 id="blacklist-title">Останні люди зі скаргами</h2>
-            </div>
+      <section class="content-band directory-band directory-band--warning" id="blacklist" aria-labelledby="blacklist-title">
+        <div class="section-heading section-heading--row">
+          <div>
+            <p class="section-kicker">Перевірений користувацький досвід</p>
+            <h2 id="blacklist-title">Останні люди зі скаргами</h2>
+          </div>
+          <div class="section-actions">
+            <a class="section-link" data-link="complaints" href="/complaints">Усі скарги</a>
             <a class="section-link section-link--warning" data-link="complaint" href="#">Залишити скаргу</a>
           </div>
-          <div class="people-list" id="blacklist-list" aria-live="polite"></div>
-        </section>
+        </div>
+        <div class="people-list" id="blacklist-list" aria-live="polite"></div>
+      </section>
 
-        <section class="info-section" aria-labelledby="how-title">
+      <section class="content-band how-band" aria-labelledby="how-title">
+        <div class="section-heading">
+          <p class="section-kicker">Три кроки</p>
           <h2 id="how-title">Як це працює?</h2>
-          <ol class="steps-list">
-            <li>
-              <span>1</span>
-              <p>Вводиш номер майстра.</p>
-            </li>
-            <li>
-              <span>2</span>
-              <p>Дивишся рекомендації та скарги.</p>
-            </li>
-            <li>
-              <span>3</span>
-              <p>Додаєш свій досвід, якщо хочеш.</p>
-            </li>
-          </ol>
-        </section>
-      </main>
+        </div>
+        <ol class="steps-list">
+          <li><span>01</span><strong>Вводиш номер майстра.</strong></li>
+          <li><span>02</span><strong>Дивишся рекомендації та скарги.</strong></li>
+          <li><span>03</span><strong>Додаєш свій досвід у Telegram.</strong></li>
+        </ol>
+      </section>
+    </main>
 
-      <footer class="site-footer">
-        <p class="disclaimer">
-          Black List Світло парк — це користувацький реєстр рекомендацій і скарг.
-          Інформація базується на відгуках мешканців і проходить модерацію.
-          Платформа не стверджує факт порушення, а фіксує користувацький досвід.
+    <footer class="site-footer">
+      <div>
+        <strong>Black List Світло парк</strong>
+        <p>
+          Це користувацький реєстр рекомендацій і скарг. Інформація базується на досвіді мешканців
+          і проходить модерацію. Платформа не встановлює факт порушення.
         </p>
-        <nav class="footer-links" aria-label="Посилання в футері">
-          <a data-link="rules" href="#">Правила</a>
-          <a data-link="privacy" href="#">Privacy</a>
-          <a data-link="telegramChannel" href="#">Telegram-канал</a>
-        </nav>
-      </footer>
-    </div>
+      </div>
+      <nav class="footer-links" aria-label="Додаткові посилання">
+        <a data-link="rules" href="/rules">Правила</a>
+        <a data-link="privacy" href="/privacy">Privacy</a>
+        <a data-link="telegramChannel" href="#">Telegram-канал</a>
+      </nav>
+    </footer>
 
-    <script src="config.js?v=20260710-1"></script>
-    <script src="app.js?v=20260710-1"></script>
+    <script src="/config.js?v=20260714-1"></script>
+    <script src="/app.js?v=20260714-1"></script>
   </body>
 </html>

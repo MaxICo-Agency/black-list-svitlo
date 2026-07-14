@@ -1,7 +1,6 @@
 (function () {
   const config = window.CHSP_CONFIG || {};
   const links = config.links || {};
-
   const form = document.querySelector("#phone-search-form");
   const input = document.querySelector("#phone-input");
   const searchButton = document.querySelector("#search-button");
@@ -13,6 +12,7 @@
   const recommendedList = document.querySelector("#recommended-list");
   const blacklistList = document.querySelector("#blacklist-list");
   const complaintTicker = document.querySelector("#complaint-ticker");
+  const complaintPreview = document.querySelector("#latest-complaints");
   const dataSummary = document.querySelector("#data-summary");
 
   const phoneFields = [
@@ -27,127 +27,65 @@
     "phone_normalized"
   ];
 
-  const fieldAliases = {
+  const aliases = {
     displayName: ["display_name", "name", "master_name", "team_name"],
     categoryName: ["category_name", "category", "service_category"],
     categoryNames: ["category_names", "categories", "service_categories"],
-    primaryPhone: phoneFields,
-    telegramUsername: ["telegram_username", "telegram", "tg", "username"],
-    positiveReviewsCount: ["positive_reviews_count", "recommendations_count", "positive_count"],
-    negativeReviewsCount: ["negative_reviews_count", "complaints_count", "negative_count"],
+    telegram: ["telegram_username", "telegram", "tg", "username"],
+    positive: ["positive_reviews_count", "recommendations_count", "positive_count"],
+    negative: ["negative_reviews_count", "complaints_count", "negative_count"],
     lastReviewAt: ["last_review_at", "last_review", "updated_at"],
     lastReviewText: ["last_review_text", "last_review_summary", "review_text", "comment"],
-    workPhotoUrl: ["work_photo_url", "photo_url", "image_url", "portfolio_photo_url"],
-    workPhotoUrls: ["work_photo_urls", "work_photos", "photo_urls", "portfolio_photo_urls"],
-    profileUrl: ["profile_url", "url", "master_url"],
-    masterId: ["master_id", "id"]
+    masterId: ["master_id", "id"],
+    pinned: ["is_pinned", "pinned"]
   };
 
-  const categoryIcons = [
-    { match: "елект", icon: "⚡" },
-    { match: "слабот", icon: "⌁" },
-    { match: "сант", icon: "🚿" },
-    { match: "плит", icon: "▧" },
-    { match: "ремонт", icon: "🛠" },
-    { match: "фарб", icon: "◒" },
-    { match: "маляр", icon: "◒" },
-    { match: "меб", icon: "▤" },
-    { match: "вікн", icon: "▣" },
-    { match: "балкон", icon: "▣" },
-    { match: "кондиц", icon: "❄" },
-    { match: "приби", icon: "✦" },
-    { match: "дизайн", icon: "◇" },
-    { match: "двер", icon: "▥" },
-    { match: "звуко", icon: "≋" }
-  ];
-
-  const categoryPhotos = [
-    { match: "елект", src: "assets/work/electric.svg" },
-    { match: "сант", src: "assets/work/plumbing.svg" },
-    { match: "плит", src: "assets/work/tile.svg" },
-    { match: "ремонт", src: "assets/work/renovation.svg" },
-    { match: "фарб", src: "assets/work/painting.svg" },
-    { match: "маляр", src: "assets/work/painting.svg" },
-    { match: "меб", src: "assets/work/furniture.svg" },
-    { match: "вікн", src: "assets/work/windows.svg" },
-    { match: "балкон", src: "assets/work/windows.svg" },
-    { match: "кондиц", src: "assets/work/climate.svg" },
-    { match: "приби", src: "assets/work/cleaning.svg" },
-    { match: "дизайн", src: "assets/work/design.svg" },
-    { match: "двер", src: "assets/work/doors.svg" },
-    { match: "звуко", src: "assets/work/acoustic.svg" }
-  ];
-
-  let phonesCache = null;
-  let allCategories = [];
+  let recordsCache = null;
 
   function normalizePhone(value) {
     const digits = String(value || "").replace(/\D/g, "");
-
-    if (!digits) {
-      return "";
-    }
-
-    if (digits.length === 12 && digits.startsWith("380")) {
-      return `+${digits}`;
-    }
-
-    if (digits.length === 10 && digits.startsWith("0")) {
-      return `+38${digits}`;
-    }
-
-    if (digits.length === 11 && digits.startsWith("80")) {
-      return `+3${digits}`;
-    }
-
-    if (digits.length === 9) {
-      return `+380${digits}`;
-    }
-
-    return digits.startsWith("380") ? `+${digits}` : `+${digits}`;
+    if (digits.length === 9) return `+380${digits}`;
+    if (digits.length === 10 && digits.startsWith("0")) return `+38${digits}`;
+    if (digits.length === 11 && digits.startsWith("80")) return `+3${digits}`;
+    if (digits.length === 12 && digits.startsWith("380")) return `+${digits}`;
+    return digits ? `+${digits}` : "";
   }
 
-  function isValidUkrainianPhone(phone) {
-    return /^\+380\d{9}$/.test(phone);
+  function isValidPhone(value) {
+    return /^\+380\d{9}$/.test(value);
   }
 
-  function formatPhone(phone) {
-    const normalized = normalizePhone(phone);
-    const match = normalized.match(/^\+380(\d{2})(\d{3})(\d{2})(\d{2})$/);
-
-    if (!match) {
-      return phone || "Не вказано";
-    }
-
-    return `+380 ${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+  function formatPhone(value) {
+    const phone = normalizePhone(value);
+    const match = phone.match(/^\+380(\d{2})(\d{3})(\d{2})(\d{2})$/);
+    return match ? `+380 ${match[1]} ${match[2]} ${match[3]} ${match[4]}` : value || "Не вказано";
   }
 
-  function parseCsv(csvText) {
+  function normalizeKey(value) {
+    return String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+  }
+
+  function parseCsv(text) {
     const rows = [];
     let row = [];
     let cell = "";
-    let insideQuotes = false;
+    let quoted = false;
 
-    for (let i = 0; i < csvText.length; i += 1) {
-      const char = csvText[i];
-      const nextChar = csvText[i + 1];
-
-      if (char === '"' && insideQuotes && nextChar === '"') {
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      const next = text[index + 1];
+      if (char === '"' && quoted && next === '"') {
         cell += '"';
-        i += 1;
+        index += 1;
       } else if (char === '"') {
-        insideQuotes = !insideQuotes;
-      } else if (char === "," && !insideQuotes) {
+        quoted = !quoted;
+      } else if (char === "," && !quoted) {
         row.push(cell);
         cell = "";
-      } else if ((char === "\n" || char === "\r") && !insideQuotes) {
-        if (char === "\r" && nextChar === "\n") {
-          i += 1;
-        }
+      } else if ((char === "\n" || char === "\r") && !quoted) {
+        if (char === "\r" && next === "\n") index += 1;
         row.push(cell);
-        if (row.some((value) => value.trim() !== "")) {
-          rows.push(row);
-        }
+        if (row.some((value) => value.trim())) rows.push(row);
         row = [];
         cell = "";
       } else {
@@ -156,545 +94,290 @@
     }
 
     row.push(cell);
-    if (row.some((value) => value.trim() !== "")) {
-      rows.push(row);
-    }
-
-    return rows;
+    if (row.some((value) => value.trim())) rows.push(row);
+    if (rows.length < 2) return [];
+    const headers = rows.shift().map(normalizeKey);
+    return rows.map((cells) => Object.fromEntries(headers.map((header, index) => [header, (cells[index] || "").trim()])));
   }
 
-  function normalizeKey(value) {
-    return String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "_");
-  }
-
-  function csvToObjects(csvText) {
-    const rows = parseCsv(csvText);
-
-    if (rows.length < 2) {
-      return [];
+  function field(record, names) {
+    for (const name of names) {
+      const value = record[normalizeKey(name)];
+      if (value !== undefined && value !== "") return value;
     }
-
-    const headers = rows[0].map(normalizeKey);
-
-    return rows.slice(1).map((row) => {
-      return headers.reduce((record, header, index) => {
-        record[header] = (row[index] || "").trim();
-        return record;
-      }, {});
-    });
-  }
-
-  function getField(record, keys) {
-    for (const key of keys) {
-      const value = record[normalizeKey(key)];
-      if (value !== undefined && value !== "") {
-        return value;
-      }
-    }
-
     return "";
   }
 
   function splitList(value) {
-    return String(value || "")
-      .split(/[\n;|,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
+    return String(value || "").split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
   }
 
-  function getPhones(record) {
-    const values = phoneFields.flatMap((field) => splitList(getField(record, [field])));
-    const normalized = values.map(normalizePhone).filter(isValidUkrainianPhone);
-
-    return Array.from(new Set(normalized));
+  function phones(record) {
+    const list = phoneFields.flatMap((name) => splitList(field(record, [name])))
+      .map(normalizePhone)
+      .filter(isValidPhone);
+    return Array.from(new Set(list));
   }
 
-  function getCategories(record) {
-    const values = [
-      ...splitList(getField(record, fieldAliases.categoryNames)),
-      ...splitList(getField(record, fieldAliases.categoryName))
-    ].filter(Boolean);
-
-    return Array.from(new Set(values)).length ? Array.from(new Set(values)) : ["Категорія не вказана"];
+  function categories(record) {
+    const list = [
+      ...splitList(field(record, aliases.categoryNames)),
+      ...splitList(field(record, aliases.categoryName))
+    ];
+    return Array.from(new Set(list)).filter(Boolean);
   }
 
-  function toNumber(value) {
-    const number = Number.parseInt(String(value || "0").replace(/[^\d-]/g, ""), 10);
-    return Number.isFinite(number) ? number : 0;
+  function numberValue(value) {
+    const parsed = Number.parseInt(String(value || "0").replace(/[^\d-]/g, ""), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  function toDateValue(value) {
-    const date = new Date(value);
-    const time = date.getTime();
-    return Number.isFinite(time) ? time : 0;
-  }
-
-  function getMasterStatus(master) {
-    const positive = toNumber(getField(master, fieldAliases.positiveReviewsCount));
-    const negative = toNumber(getField(master, fieldAliases.negativeReviewsCount));
-
-    if (negative > 0) {
-      return {
-        label: "⚠️ Є скарги",
-        className: "status-pill--warning"
-      };
-    }
-
-    if (positive > 0) {
-      return {
-        label: "✅ Є позитивні відгуки",
-        className: "status-pill--good"
-      };
-    }
-
-    return {
-      label: "ℹ️ Мало інформації",
-      className: "status-pill--info"
-    };
-  }
-
-  async function loadPhones() {
-    if (phonesCache) {
-      return phonesCache;
-    }
-
-    if (!config.phonesCsvUrl) {
-      throw new Error("missing_sheet_url");
-    }
-
-    const response = await fetch(config.phonesCsvUrl, {
-      cache: "no-store"
-    });
-
-    if (!response.ok) {
-      throw new Error("sheet_fetch_failed");
-    }
-
-    phonesCache = csvToObjects(await response.text());
-    return phonesCache;
-  }
-
-  function findMasterByPhone(records, normalizedPhone) {
-    return records.find((record) => getPhones(record).includes(normalizedPhone));
-  }
-
-  function getMasterView(record) {
-    const displayName = getField(record, fieldAliases.displayName) || "Без назви";
-    const categories = getCategories(record);
-    const categoryName = categories[0];
-    const phones = getPhones(record);
-    const primaryPhone = phones[0] || normalizePhone(getField(record, fieldAliases.primaryPhone));
-    const positive = toNumber(getField(record, fieldAliases.positiveReviewsCount));
-    const negative = toNumber(getField(record, fieldAliases.negativeReviewsCount));
-    const workPhotoUrls = getWorkPhotoUrls(record, categoryName);
-
+  function view(record) {
+    const recordPhones = phones(record);
     return {
       record,
-      displayName,
-      categories,
-      categoryName,
-      phones,
-      primaryPhone,
-      telegramUsername: getField(record, fieldAliases.telegramUsername),
-      positive,
-      negative,
-      lastReviewAt: getField(record, fieldAliases.lastReviewAt) || "Ще немає",
-      lastReviewText: getField(record, fieldAliases.lastReviewText),
-      workPhotoUrl: workPhotoUrls[0],
-      workPhotoUrls,
-      profileUrl: buildLink("profile", normalizePhone(primaryPhone), record)
+      id: field(record, aliases.masterId),
+      name: field(record, aliases.displayName) || "Без назви",
+      categories: categories(record),
+      phones: recordPhones,
+      primaryPhone: recordPhones[0] || "",
+      telegram: field(record, aliases.telegram),
+      positive: numberValue(field(record, aliases.positive)),
+      negative: numberValue(field(record, aliases.negative)),
+      lastReviewAt: field(record, aliases.lastReviewAt),
+      lastReviewText: field(record, aliases.lastReviewText),
+      pinned: /^(1|true|yes|так)$/i.test(field(record, aliases.pinned))
     };
   }
 
-  function renderHomepageData(records) {
-    const masters = records.map(getMasterView);
-    const categoryMap = masters.reduce((map, master) => {
-      master.categories.forEach((categoryName) => {
-        const current = map.get(categoryName) || {
-          name: categoryName,
-          total: 0,
-          positive: 0,
-          negative: 0
-        };
+  async function loadRecords() {
+    if (recordsCache) return recordsCache;
+    if (!config.phonesCsvUrl) throw new Error("missing_data_url");
+    const response = await fetch(config.phonesCsvUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error("data_fetch_failed");
+    recordsCache = parseCsv(await response.text());
+    return recordsCache;
+  }
 
-        current.total += 1;
-        current.positive += master.positive;
-        current.negative += master.negative;
-        map.set(categoryName, current);
-      });
+  function telegramAction(kind, phone = "") {
+    const configured = links[kind] || links.telegramBot || "https://telegram.me/bl_svitlopark_bot";
+    const url = new URL(configured, window.location.origin);
+    const action = { recommend: "recommend", complaint: "complaint", addMaster: "add" }[kind];
+    if (action) {
+      const digits = String(phone || "").replace(/\D/g, "");
+      url.searchParams.set("start", digits ? `${action}_${digits}` : action);
+    }
+    return url.toString();
+  }
 
-      return map;
-    }, new Map());
+  function profileLink(master) {
+    const url = new URL("/profile", window.location.origin);
+    if (master.id) url.searchParams.set("id", master.id);
+    else if (master.primaryPhone) url.searchParams.set("phone", master.primaryPhone);
+    return `${url.pathname}${url.search}`;
+  }
 
-    const categories = Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
-    const recommended = masters
-      .filter((master) => master.positive > 0 && master.negative === 0)
-      .sort((a, b) => b.positive - a.positive || toDateValue(b.lastReviewAt) - toDateValue(a.lastReviewAt))
-      .slice(0, 6);
-    const blacklist = masters
+  function applyLinks() {
+    document.querySelectorAll("[data-link]").forEach((element) => {
+      const key = element.dataset.link;
+      const href = ["recommend", "complaint", "addMaster"].includes(key)
+        ? telegramAction(key)
+        : links[key];
+      if (href) element.href = href;
+      if (/^https:\/\/telegram\.me\//.test(element.href)) {
+        element.target = "_blank";
+        element.rel = "noreferrer";
+      }
+    });
+  }
+
+  function seededScore(master) {
+    const date = new Date().toISOString().slice(0, 10);
+    const value = `${date}:${master.id || master.primaryPhone}`;
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function sortRecommendations(items) {
+    return [...items].sort((left, right) => {
+      if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+      return seededScore(left) - seededScore(right);
+    });
+  }
+
+  function renderPerson(master, tone) {
+    const status = tone === "warning" ? "Є скарги" : "Рекомендують";
+    const count = tone === "warning" ? master.negative : master.positive;
+    const countLabel = tone === "warning" ? "скарг" : "рекомендацій";
+    return `
+      <a class="person-row person-row--${tone}" href="${escapeAttribute(profileLink(master))}">
+        <div class="person-row__body">
+          <span class="person-row__status">${escapeHtml(status)}</span>
+          <h3>${escapeHtml(master.name)}</h3>
+          <p>${escapeHtml(master.categories.join(" · ") || "Послуги не вказані")}</p>
+          ${master.lastReviewText ? `<blockquote>${escapeHtml(master.lastReviewText)}</blockquote>` : ""}
+        </div>
+        <div class="person-row__meta">
+          <strong>${count} ${escapeHtml(countLabel)}</strong>
+          <span>${escapeHtml(formatPhone(master.primaryPhone))}</span>
+        </div>
+      </a>
+    `;
+  }
+
+  function renderCategories(masters) {
+    const counts = new Map();
+    masters.forEach((master) => master.categories.forEach((category) => {
+      counts.set(category, (counts.get(category) || 0) + 1);
+    }));
+
+    const items = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], "uk"));
+    if (!items.length) {
+      categoriesList.innerHTML = empty("Поки немає послуг у базі.");
+      return;
+    }
+
+    categoriesList.innerHTML = items.map(([name, count]) => `
+      <a class="service-item" href="/services?service=${encodeURIComponent(name)}" data-service-search="${escapeAttribute(normalizeSearch(name))}">
+        <strong>${escapeHtml(name)}</strong>
+        <span>${count}</span>
+      </a>
+    `).join("");
+  }
+
+  function renderHomepage(records) {
+    const masters = records.map(view).filter((master) => master.primaryPhone);
+    const recommended = sortRecommendations(masters.filter((master) => master.positive > 0));
+    const complaints = [...masters]
       .filter((master) => master.negative > 0)
-      .sort((a, b) => toDateValue(b.lastReviewAt) - toDateValue(a.lastReviewAt) || b.negative - a.negative)
-      .slice(0, 6);
+      .sort((a, b) => String(b.lastReviewAt).localeCompare(String(a.lastReviewAt)));
 
-    dataSummary.textContent = `${records.length} записів у базі. Нові відгуки зʼявляються після модерації.`;
-    allCategories = categories;
-    renderCategories(allCategories);
+    renderCategories(masters);
     recommendedList.innerHTML = recommended.length
-      ? recommended.map((master) => renderPersonCard(master, "good")).join("")
-      : renderEmptyList("Поки немає майстрів із позитивними рекомендаціями.");
-    blacklistList.innerHTML = blacklist.length
-      ? blacklist.map((master) => renderPersonCard(master, "warning")).join("")
-      : renderEmptyList("Поки немає записів зі скаргами.");
-    renderComplaintTicker(blacklist);
+      ? recommended.slice(0, 6).map((master) => renderPerson(master, "good")).join("")
+      : empty("Поки немає схвалених рекомендацій.");
+    blacklistList.innerHTML = complaints.length
+      ? complaints.slice(0, 6).map((master) => renderPerson(master, "warning")).join("")
+      : empty("Поки немає схвалених скарг.");
+
+    if (complaints.length) {
+      complaintPreview.hidden = false;
+      complaintTicker.innerHTML = complaints.slice(0, 4).map((master) => `
+        <a href="${escapeAttribute(profileLink(master))}">
+          <strong>${escapeHtml(master.name)}</strong>
+          <span>${escapeHtml(formatPhone(master.primaryPhone))}</span>
+          <small>${escapeHtml(master.lastReviewText || "Є скарга від мешканця.")}</small>
+        </a>
+      `).join("");
+    } else {
+      complaintPreview.hidden = true;
+    }
+
+    const servicesCount = new Set(masters.flatMap((master) => master.categories)).size;
+    dataSummary.textContent = `${masters.length} ${plural(masters.length, "майстер", "майстри", "майстрів")} · ${servicesCount} ${plural(servicesCount, "послуга", "послуги", "послуг")}`;
   }
 
-  function renderCategories(categories) {
-    categoriesList.innerHTML = categories.length
-      ? categories.map(renderCategoryCard).join("")
-      : renderEmptyList("Такої послуги поки немає. Спробуй інший запит.");
-  }
-
-  function filterCategories() {
-    const query = normalizeSearch(categorySearch.value);
-
-    if (!query) {
-      renderCategories(allCategories);
+  function renderSearchState(kind, phone, master = null) {
+    resultPanel.hidden = false;
+    if (kind === "loading") {
+      resultPanel.innerHTML = `<p class="result-eyebrow">Перевіряємо</p><h2>Шукаємо ${escapeHtml(formatPhone(phone))}</h2>`;
       return;
     }
 
-    renderCategories(
-      allCategories.filter((category) => normalizeSearch(category.name).includes(query))
-    );
-  }
-
-  function renderCategoryCard(category) {
-    const categoryLink = `category.html?service=${encodeURIComponent(category.name)}`;
-
-    return `
-      <a class="category-card" href="${escapeAttribute(categoryLink)}" data-category="${escapeAttribute(category.name)}" data-category-search="${escapeAttribute(normalizeSearch(category.name))}">
-        <span class="category-icon" aria-hidden="true">${escapeHtml(getCategoryIcon(category.name))}</span>
-        <strong>${escapeHtml(category.name)}</strong>
-        <span>${category.total} ${pluralize(category.total, "майстер", "майстри", "майстрів")}</span>
-        <small>${category.positive} рек. · ${category.negative} скарг</small>
-      </a>
-    `;
-  }
-
-  function renderPersonCard(master, tone) {
-    const phoneLabel = master.primaryPhone ? formatPhone(master.primaryPhone) : "Телефон не вказано";
-    const isWarning = tone === "warning";
-    const reviewText = master.lastReviewText || (isWarning
-      ? "Є скарги від мешканців."
-      : "Є позитивні відгуки від мешканців.");
-    const profileLink = buildLink("profile", master.primaryPhone, master.record);
-    const photos = master.workPhotoUrls.length ? master.workPhotoUrls : [master.workPhotoUrl];
-
-    return `
-      <a class="person-card person-card--clickable person-card--${tone}" href="${escapeAttribute(profileLink)}">
-        <div class="person-gallery" aria-label="Фото робіт">
-          ${photos.slice(0, 4).map((photoUrl) => `
-            <img src="${escapeAttribute(photoUrl)}" alt="${escapeAttribute(`Робота: ${master.categoryName}`)}" loading="lazy" />
-          `).join("")}
-        </div>
-        <div class="person-card-body">
-          <div>
-            <h3>${escapeHtml(master.displayName)}</h3>
-            <p>${escapeHtml(master.categories.join(" · "))}</p>
-          </div>
-          <div class="person-score">
-            <span>${master.positive} ${pluralize(master.positive, "рекомендація", "рекомендації", "рекомендацій")}</span>
-            <span>${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}</span>
-          </div>
-          <small>${escapeHtml(reviewText)}</small>
-          <span class="person-card-link">Відкрити профіль · ${escapeHtml(phoneLabel)}</span>
-        </div>
-      </a>
-    `;
-  }
-
-  function renderPersonRow(master, tone) {
-    const isWarning = tone === "warning";
-    const reviewsLine = isWarning
-      ? `${master.negative} ${pluralize(master.negative, "скарга", "скарги", "скарг")}`
-      : `${master.positive} ${pluralize(master.positive, "рекомендація", "рекомендації", "рекомендацій")}`;
-    const reviewText = master.lastReviewText || (isWarning ? "Є скарги від мешканців." : "Є позитивні відгуки від мешканців.");
-    const profileLink = buildLink("profile", master.primaryPhone, master.record);
-
-    return `
-      <a class="person-row person-row--${tone}" href="${escapeAttribute(profileLink)}">
-        <div>
-          <h3>${escapeHtml(master.displayName)}</h3>
-          <p>${escapeHtml(master.categories.join(" · "))} · ${escapeHtml(formatPhone(master.primaryPhone))}</p>
-          <small>${escapeHtml(reviewText)}</small>
-        </div>
-        <div class="person-meta">
-          <strong>${escapeHtml(reviewsLine)}</strong>
-          <span>${escapeHtml(master.lastReviewAt)}</span>
-        </div>
-      </a>
-    `;
-  }
-
-  function renderComplaintTicker(blacklist) {
-    if (!complaintTicker) {
+    if (kind === "invalid") {
+      resultPanel.innerHTML = `
+        <p class="result-eyebrow result-eyebrow--warning">Перевір номер</p>
+        <h2>Введи номер у форматі +380 XX XXX XX XX.</h2>
+        <p>Пробіли, дужки та дефіси можна залишити.</p>
+      `;
       return;
     }
 
-    if (!blacklist.length) {
-      complaintTicker.innerHTML = renderEmptyList("Поки немає останніх скарг.");
+    if (kind === "not-found") {
+      resultPanel.innerHTML = `
+        <p class="result-eyebrow">Не знайдено</p>
+        <h2>Майстра з таким номером поки немає в базі.</h2>
+        <p>Перевірений номер: ${escapeHtml(formatPhone(phone))}</p>
+        <div class="result-actions">
+          <a class="primary-result-action" href="${escapeAttribute(telegramAction("recommend", phone))}">Залишити рекомендацію</a>
+          <a class="warning-action" href="${escapeAttribute(telegramAction("complaint", phone))}">Залишити скаргу</a>
+          <a href="${escapeAttribute(telegramAction("addMaster", phone))}">Стати майстром</a>
+        </div>
+      `;
       return;
     }
 
-    const repeated = [...blacklist, ...blacklist];
-    complaintTicker.innerHTML = `
-      <div class="complaint-track">
-        ${repeated.map(renderComplaintTickerCard).join("")}
-      </div>
-    `;
-  }
-
-  function renderComplaintTickerCard(master) {
-    const profileLink = buildLink("profile", master.primaryPhone, master.record);
-    const reviewText = master.lastReviewText || "Є скарги від мешканців.";
-
-    return `
-      <a class="complaint-card" href="${escapeAttribute(profileLink)}">
-        <span>
-          <strong>${escapeHtml(master.displayName)}</strong>
-          <em>${escapeHtml(formatPhone(master.primaryPhone))}</em>
-        </span>
-        <small>${escapeHtml(reviewText)}</small>
-      </a>
-    `;
-  }
-
-  function renderEmptyList(message) {
-    return `<p class="empty-list">${escapeHtml(message)}</p>`;
-  }
-
-  function renderHomepageLoading() {
-    dataSummary.textContent = "Завантажуємо перевірені записи.";
-    categoriesList.innerHTML = renderEmptyList("Завантажуємо послуги...");
-    recommendedList.innerHTML = renderEmptyList("Завантажуємо рекомендації...");
-    blacklistList.innerHTML = renderEmptyList("Завантажуємо black list...");
-    if (complaintTicker) {
-      complaintTicker.innerHTML = renderEmptyList("Завантажуємо останні скарги...");
-    }
-  }
-
-  function renderHomepageError(error) {
-    const message = error.message === "missing_sheet_url"
-      ? "Не налаштовано джерело даних."
-      : "Не вдалося завантажити базу.";
-
-    dataSummary.textContent = message;
-    categoriesList.innerHTML = renderEmptyList(message);
-    recommendedList.innerHTML = renderEmptyList(message);
-    blacklistList.innerHTML = renderEmptyList(message);
-    if (complaintTicker) {
-      complaintTicker.innerHTML = renderEmptyList(message);
-    }
-  }
-
-  function pluralize(number, one, few, many) {
-    const normalized = Math.abs(number) % 100;
-    const lastDigit = normalized % 10;
-
-    if (normalized > 10 && normalized < 20) {
-      return many;
+    if (kind === "found" && master) {
+      const status = master.negative > 0
+        ? "Є скарги"
+        : master.positive > 0
+          ? "Є позитивні відгуки"
+          : "Мало інформації";
+      resultPanel.innerHTML = `
+        <p class="result-eyebrow">Знайдено майстра</p>
+        <div class="result-found-head">
+          <h2>${escapeHtml(master.name)}</h2>
+          <span class="status-pill ${master.negative > 0 ? "status-pill--warning" : "status-pill--good"}">${escapeHtml(status)}</span>
+        </div>
+        <dl class="result-details">
+          <div><dt>Послуги</dt><dd>${escapeHtml(master.categories.join(" · ") || "Не вказано")}</dd></div>
+          <div><dt>Телефони</dt><dd>${escapeHtml(master.phones.map(formatPhone).join(", "))}</dd></div>
+          ${master.telegram ? `<div><dt>Telegram</dt><dd>${escapeHtml(master.telegram)}</dd></div>` : ""}
+          <div><dt>Відгуки</dt><dd>${master.positive} рекомендацій · ${master.negative} скарг</dd></div>
+        </dl>
+        <div class="result-actions">
+          <a class="primary-result-action" href="${escapeAttribute(profileLink(master))}">Відкрити профіль</a>
+          <a href="${escapeAttribute(telegramAction("recommend", phone))}">Додати рекомендацію</a>
+          <a class="warning-action" href="${escapeAttribute(telegramAction("complaint", phone))}">Залишити скаргу</a>
+        </div>
+      `;
+      return;
     }
 
-    if (lastDigit === 1) {
-      return one;
-    }
+    resultPanel.innerHTML = `<p class="result-eyebrow result-eyebrow--warning">Помилка</p><h2>Не вдалося завантажити базу.</h2><p>Спробуй ще раз трохи пізніше.</p>`;
+  }
 
-    if (lastDigit >= 2 && lastDigit <= 4) {
-      return few;
+  async function search(phone) {
+    const scrollPosition = { x: window.scrollX, y: window.scrollY };
+    renderSearchState("loading", phone);
+    searchButton.disabled = true;
+    try {
+      const records = await loadRecords();
+      const record = records.find((item) => phones(item).includes(phone));
+      renderSearchState(record ? "found" : "not-found", phone, record ? view(record) : null);
+    } catch (error) {
+      renderSearchState("error", phone);
+    } finally {
+      searchButton.disabled = false;
+      window.requestAnimationFrame(() => {
+        window.scrollTo(scrollPosition.x, scrollPosition.y);
+      });
     }
-
-    return many;
   }
 
   function normalizeSearch(value) {
-    return String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/ё/g, "е")
-      .replace(/ґ/g, "г")
-      .replace(/\s+/g, " ");
+    return String(value || "").trim().toLowerCase().replace(/ґ/g, "г").replace(/\s+/g, " ");
   }
 
-  function getCategoryIcon(categoryName) {
-    const normalized = String(categoryName || "").toLowerCase();
-    const match = categoryIcons.find((item) => normalized.includes(item.match));
-    return match ? match.icon : "◆";
+  function empty(message) {
+    return `<p class="empty-list">${escapeHtml(message)}</p>`;
   }
 
-  function getWorkPhotoUrl(record, categoryName) {
-    return getWorkPhotoUrls(record, categoryName)[0];
-  }
-
-  function getWorkPhotoUrls(record, categoryName) {
-    const configuredPhotos = [
-      ...splitList(getField(record, fieldAliases.workPhotoUrls)),
-      ...splitList(getField(record, fieldAliases.workPhotoUrl))
-    ];
-
-    if (configuredPhotos.length) {
-      return Array.from(new Set(configuredPhotos));
-    }
-
-    return [getFallbackWorkPhotoUrl(categoryName)];
-  }
-
-  function getFallbackWorkPhotoUrl(categoryName) {
-    const normalized = String(categoryName || "").toLowerCase();
-    const match = categoryPhotos.find((item) => normalized.includes(item.match));
-
-    return match ? match.src : "assets/work/default.svg";
-  }
-
-  function buildLink(kind, phone, master) {
-    const configuredLink = links[kind];
-
-    if (configuredLink && configuredLink !== "#") {
-      const url = new URL(configuredLink, window.location.href);
-      if (phone) {
-        url.searchParams.set("phone", phone);
-      }
-      return url.toString();
-    }
-
-    if (kind === "profile") {
-      const profileUrl = getField(master || {}, fieldAliases.profileUrl);
-      const masterId = getField(master || {}, fieldAliases.masterId);
-
-      if (profileUrl) {
-        return profileUrl;
-      }
-
-      if (masterId) {
-        return `profile.html?id=${encodeURIComponent(masterId)}`;
-      }
-
-      return `profile.html?phone=${encodeURIComponent(phone)}`;
-    }
-
-    return "#";
-  }
-
-  function renderLoading(phone) {
-    resultPanel.hidden = false;
-    resultPanel.innerHTML = `
-      <p class="result-eyebrow">Пошук</p>
-      <h2 class="result-title">Перевіряємо ${escapeHtml(formatPhone(phone))}</h2>
-      <p class="result-message">Шукаємо номер у перевіреній базі.</p>
-    `;
-    showResultPanel();
-  }
-
-  function renderNotFound(phone) {
-    resultPanel.hidden = false;
-    resultPanel.innerHTML = `
-      <p class="result-eyebrow">Не знайдено</p>
-      <h2 class="result-title">Майстра з таким номером поки немає в базі.</h2>
-      <p class="result-message">Перевірений номер: ${escapeHtml(formatPhone(phone))}</p>
-      <div class="result-actions">
-        <a class="primary-result-action good-action" href="${escapeAttribute(buildLink("recommend", phone))}">Залишити рекомендацію</a>
-        <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone))}">Залишити скаргу</a>
-        <a href="${escapeAttribute(buildLink("addMaster", phone))}">Стати майстром</a>
-      </div>
-    `;
-    showResultPanel();
-  }
-
-  function renderFound(master, phone) {
-    const view = getMasterView(master);
-    const displayName = view.displayName;
-    const categoryName = view.categories.join(" · ");
-    const masterPhone = view.primaryPhone || phone;
-    const telegram = view.telegramUsername || "Не вказано";
-    const positive = getField(master, fieldAliases.positiveReviewsCount) || "0";
-    const negative = getField(master, fieldAliases.negativeReviewsCount) || "0";
-    const lastReview = getField(master, fieldAliases.lastReviewAt) || "Ще немає";
-    const status = getMasterStatus(master);
-
-    resultPanel.hidden = false;
-    resultPanel.innerHTML = `
-      <p class="result-eyebrow">Знайдено майстра</p>
-      <h2 class="result-title">${escapeHtml(displayName)}</h2>
-      <div class="master-grid">
-        ${renderField("Імʼя", displayName)}
-        ${renderField("Категорії", categoryName)}
-        ${renderField("Телефон", formatPhone(masterPhone))}
-        ${view.phones.length > 1 ? renderField("Інші номери", view.phones.slice(1).map(formatPhone).join(", ")) : ""}
-        ${renderField("Telegram", telegram)}
-        ${renderField("Рекомендацій", positive)}
-        ${renderField("Скарг", negative)}
-        ${renderField("Останній відгук", lastReview)}
-        <div class="master-field">
-          <span>Статус</span>
-          <strong class="status-pill ${status.className}">${escapeHtml(status.label)}</strong>
-        </div>
-      </div>
-      <div class="result-actions">
-        <a class="primary-result-action" href="${escapeAttribute(buildLink("profile", phone, master))}">Відкрити профіль</a>
-        <a class="good-action" href="${escapeAttribute(buildLink("recommend", phone, master))}">Додати рекомендацію</a>
-        <a class="warning-action" href="${escapeAttribute(buildLink("complaint", phone, master))}">Залишити скаргу</a>
-      </div>
-    `;
-    showResultPanel();
-  }
-
-  function renderField(label, value) {
-    return `
-      <div class="master-field">
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value || "Не вказано")}</strong>
-      </div>
-    `;
-  }
-
-  function renderError(error) {
-    const isMissingSheet = error.message === "missing_sheet_url";
-    resultPanel.hidden = false;
-    resultPanel.innerHTML = `
-      <p class="result-eyebrow">Пошук недоступний</p>
-      <h2 class="result-title">${
-        isMissingSheet
-          ? "Джерело даних ще не підключено."
-          : "Не вдалося отримати дані з бази."
-      }</h2>
-      <p class="result-message">${
-        isMissingSheet
-          ? "Перевір налаштування джерела даних."
-          : "Спробуй ще раз трохи пізніше."
-      }</p>
-    `;
-    showResultPanel();
-  }
-
-  function renderInvalidPhone() {
-    resultPanel.hidden = false;
-    resultPanel.innerHTML = `
-      <p class="result-eyebrow">Перевір номер</p>
-      <h2 class="result-title">Введи номер у форматі +380 XX XXX XX XX.</h2>
-      <p class="result-message">Пробіли, дужки та дефіси можна залишити — ми очистимо їх автоматично.</p>
-    `;
-    showResultPanel();
-  }
-
-  function showResultPanel() {
-    resultPanel.hidden = false;
-    resultPanel.classList.add("result-panel--active");
-    resultPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  function plural(number, one, few, many) {
+    const value = Math.abs(number) % 100;
+    const last = value % 10;
+    if (value > 10 && value < 20) return many;
+    if (last === 1) return one;
+    if (last >= 2 && last <= 4) return few;
+    return many;
   }
 
   function escapeHtml(value) {
-    return String(value)
+    return String(value || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -706,85 +389,67 @@
     return escapeHtml(value).replace(/`/g, "&#096;");
   }
 
-  function wireStaticLinks() {
-    document.querySelectorAll("[data-link]").forEach((element) => {
-      const key = element.getAttribute("data-link");
-      if (links[key]) {
-        element.setAttribute("href", links[key]);
-      }
-    });
-  }
-
-  function closeMenu() {
-    siteMenu.hidden = true;
-    menuButton.setAttribute("aria-expanded", "false");
-  }
-
-  function toggleMenu() {
-    const shouldOpen = siteMenu.hidden;
-    siteMenu.hidden = !shouldOpen;
-    menuButton.setAttribute("aria-expanded", String(shouldOpen));
-  }
-
-  async function handleSearch(event) {
+  form?.addEventListener("submit", (event) => {
     event.preventDefault();
-
-    const normalizedPhone = normalizePhone(input.value);
-
-    if (!isValidUkrainianPhone(normalizedPhone)) {
-      renderInvalidPhone();
+    const phone = normalizePhone(input.value);
+    if (!isValidPhone(phone)) {
+      renderSearchState("invalid", phone);
       input.focus();
       return;
     }
-
-    input.value = formatPhone(normalizedPhone);
-    searchButton.disabled = true;
-    searchButton.textContent = "Перевіряємо...";
-    renderLoading(normalizedPhone);
-
-    try {
-      const records = await loadPhones();
-      const master = findMasterByPhone(records, normalizedPhone);
-
-      if (master) {
-        renderFound(master, normalizedPhone);
-      } else {
-        renderNotFound(normalizedPhone);
-      }
-    } catch (error) {
-      renderError(error);
-    } finally {
-      searchButton.disabled = false;
-      searchButton.textContent = "Перевірити";
-    }
-  }
-
-  async function bootHomepage() {
-    renderHomepageLoading();
-
-    try {
-      renderHomepageData(await loadPhones());
-    } catch (error) {
-      renderHomepageError(error);
-    }
-  }
-
-  wireStaticLinks();
-  form.addEventListener("submit", handleSearch);
-  categorySearch.addEventListener("input", filterCategories);
-  menuButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    toggleMenu();
+    input.value = formatPhone(phone);
+    search(phone);
   });
+
+  input?.addEventListener("blur", () => {
+    const phone = normalizePhone(input.value);
+    if (isValidPhone(phone)) input.value = formatPhone(phone);
+  });
+
+  categorySearch?.addEventListener("input", () => {
+    const query = normalizeSearch(categorySearch.value);
+    categoriesList.querySelectorAll(".service-item").forEach((item) => {
+      item.hidden = Boolean(query) && !item.dataset.serviceSearch.includes(query);
+    });
+  });
+
+  menuButton?.addEventListener("click", () => {
+    const open = siteMenu.hidden;
+    siteMenu.hidden = !open;
+    menuButton.setAttribute("aria-expanded", String(open));
+  });
+
   document.addEventListener("click", (event) => {
-    if (!siteMenu.hidden && !siteMenu.contains(event.target) && event.target !== menuButton) {
-      closeMenu();
-    }
+    if (!siteMenu || siteMenu.hidden || siteMenu.contains(event.target) || menuButton.contains(event.target)) return;
+    siteMenu.hidden = true;
+    menuButton.setAttribute("aria-expanded", "false");
   });
+
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeMenu();
+    if (event.key === "Escape" && siteMenu && !siteMenu.hidden) {
+      siteMenu.hidden = true;
+      menuButton.setAttribute("aria-expanded", "false");
     }
   });
-  bootHomepage();
+
+  async function boot() {
+    applyLinks();
+    try {
+      const records = await loadRecords();
+      renderHomepage(records);
+    } catch (error) {
+      categoriesList.innerHTML = empty("Не вдалося завантажити послуги.");
+      recommendedList.innerHTML = empty("Не вдалося завантажити рекомендації.");
+      blacklistList.innerHTML = empty("Не вдалося завантажити скарги.");
+      dataSummary.textContent = "База тимчасово недоступна.";
+    }
+
+    const queryPhone = normalizePhone(new URLSearchParams(window.location.search).get("phone"));
+    if (isValidPhone(queryPhone)) {
+      input.value = formatPhone(queryPhone);
+      search(queryPhone);
+    }
+  }
+
+  boot();
 })();
