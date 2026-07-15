@@ -40,6 +40,13 @@
 пошук і публічний канал. Фотографії залишаються в Telegram та відображаються
 лише у відповідному відгуку через захищений media proxy.
 
+Структуровані результати, картки модерації та публікації каналу використовують
+Telegram Bot API 10.2 Rich Messages: нативні заголовки, списки, цитати,
+роздільники й приховану службову інформацію. Короткі кроки діалогу залишаються
+regular HTML-повідомленнями. Для Rich Messages передбачено автоматичний
+fallback на regular HTML. Кнопки використовують нативні стилі `primary`,
+`success` і `danger`.
+
 Веб-ендпоінт `POST /api/submissions` навмисно повертає `410 telegram_only`.
 
 ## Чисті маршрути
@@ -71,8 +78,16 @@ TELEGRAM_PUBLIC_URL=https://telegram.me/blacklist_svitlopark
 
 ```bash
 npm run check
+npm test
+npm run telegram:refresh       # dry-run оновлення існуючих Telegram-карток
+npm run telegram:refresh -- --apply
 docker compose up -d --build
 ```
+
+Для оновлення ще не розглянутих старих заявок можна тимчасово передати
+відповідність `submission_id -> message_id` через змінну
+`TELEGRAM_PENDING_MESSAGES`. Refresh-скрипт не створює нових публікацій: він
+редагує повідомлення на місці та зберігає їхні ID і закріплення.
 
 Docker-контейнер працює за Traefik на домені
 `https://bl-svitlopark.maxicolabs.com/`.

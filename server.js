@@ -2,6 +2,18 @@ const fs = require("node:fs/promises");
 const http = require("node:http");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
+const {
+  botPrompt,
+  buildFoundCard,
+  buildIntakeCompleteCard,
+  buildModerationCard,
+  buildNotFoundCard,
+  buildPublicCard,
+  buildRelayCard,
+  buildWelcomeCard,
+  intakePrompt,
+  telegramButton
+} = require("./telegram-ui");
 
 const PORT = Number(process.env.PORT || 3000);
 const STATIC_DIR = __dirname;
@@ -222,7 +234,7 @@ async function processTelegramUpdate(update) {
 
   if (command === "/cancel") {
     await clearBotSession(chatId);
-    await sendBotMessage(chatId, "Заявку скасовано.", mainMenuKeyboard());
+    await sendBotMessage(chatId, botPrompt("Заявку скасовано", "Можеш почати нову дію з меню нижче."), mainMenuKeyboard());
     return;
   }
 
@@ -257,7 +269,7 @@ async function processTelegramUpdate(update) {
   if (hasTelegramAttachment(message)) {
     await sendBotMessage(
       chatId,
-      "Спочатку обери тип заявки. Фото додаються всередині рекомендації, скарги або анкети майстра.",
+      botPrompt("Спочатку обери тип заявки", "Фото додаються наприкінці рекомендації, скарги або анкети майстра."),
       mainMenuKeyboard()
     );
     return;
@@ -268,22 +280,22 @@ async function processTelegramUpdate(update) {
   }
 
   if (command === "/categories") {
-    await sendBotMessage(chatId, "Послуги формуються з анкет і схвалених відгуків мешканців.", categoriesKeyboard());
+    await sendBotMessage(chatId, botPrompt("Послуги", "Список формується з анкет і схвалених відгуків мешканців."), categoriesKeyboard());
     return;
   }
 
   if (command === "/search") {
-    await sendBotMessage(chatId, "Надішли номер майстра у форматі +380 XX XXX XX XX або 067 XXX XX XX.", mainMenuKeyboard());
+    await sendBotMessage(chatId, botPrompt("Пошук за номером", "Надішли +380 XX XXX XX XX або 067 XXX XX XX.", "Пробіли, дужки й дефіси можна залишити."), mainMenuKeyboard());
     return;
   }
 
   if (command === "/blacklist") {
-    await sendBotMessage(chatId, "Відкрий список схвалених скарг.", blacklistKeyboard());
+    await sendBotMessage(chatId, botPrompt("Black List", "Тут зібрані скарги, що пройшли модерацію."), blacklistKeyboard());
     return;
   }
 
   if (command === "/channel") {
-    await sendBotMessage(chatId, "У каналі публікуються тільки записи після модерації.", publicChannelKeyboard());
+    await sendBotMessage(chatId, botPrompt("Публічний канал", "У каналі зʼявляються тільки записи після модерації."), publicChannelKeyboard());
     return;
   }
 
@@ -292,7 +304,7 @@ async function processTelegramUpdate(update) {
   if (!/^\+380\d{9}$/.test(phone)) {
     await sendBotMessage(
       chatId,
-      "Не бачу коректного номера. Надішли +380 XX XXX XX XX або обери дію нижче.",
+      botPrompt("Номер не розпізнано", "Надішли +380 XX XXX XX XX або 067 XXX XX XX."),
       mainMenuKeyboard()
     );
     return;
@@ -302,30 +314,26 @@ async function processTelegramUpdate(update) {
   const record = records.find((item) => item.phones.includes(phone));
 
   if (!record) {
-    await sendBotMessage(chatId, [
-      "НІЧОГО НЕ ЗНАЙДЕНО",
-      "",
-      "Майстра з таким номером поки немає в базі.",
-      `Перевірений номер: ${formatPhone(phone)}`
-    ].join("\n"), notFoundKeyboard(phone));
+    const card = buildNotFoundCard({ phone: formatPhone(phone), rawPhone: phone });
+    await sendRichBotMessage(chatId, card, notFoundKeyboard(phone));
     return;
   }
 
   const status = getMasterStatus(record);
   const profileUrl = siteUrl("/profile", { phone });
 
-  await sendBotMessage(chatId, [
-    "ЗНАЙДЕНО МАЙСТРА",
-    "",
-    `Імʼя: ${record.displayName}`,
-    `Послуги: ${record.categoryName}`,
-    `Телефон: ${formatPhone(phone)}`,
-    record.telegramUsername ? `Telegram: ${record.telegramUsername}` : "",
-    `Рекомендацій: ${record.positive}`,
-    `Скарг: ${record.negative}`,
-    record.lastReviewAt ? `Останній відгук: ${record.lastReviewAt}` : "",
-    `Статус: ${status}`
-  ].filter(Boolean).join("\n"), foundKeyboard(phone, profileUrl));
+  const card = buildFoundCard({
+    name: record.displayName,
+    services: record.categoryName,
+    phones: [{ value: formatPhone(phone), href: `tel:${phone}` }],
+    telegramUsername: record.telegramUsername,
+    positive: record.positive,
+    negative: record.negative,
+    lastReviewAt: record.lastReviewAt,
+    status,
+    profileUrl
+  });
+  await sendRichBotMessage(chatId, card, foundKeyboard(phone, profileUrl));
 }
 
 async function processTelegramCallback(callback) {
@@ -425,18 +433,17 @@ async function processTelegramCallback(callback) {
   await fs.appendFile(MODERATION_EVENTS_FILE, `${JSON.stringify(event)}\n`, "utf8");
   invalidatePhoneCaches();
 
-  const statusLine = status === "approved"
-    ? `Статус: додано до бази і вже доступно в пошуку${publicResult.sent ? " та публічному каналі" : ""}.`
-    : `Статус: відхилено.\nПричина: ${rejectionReason || "не вказана"}.`;
-  const sourceText = clean(callback.message?.text, 3600).replace(/\n\nСтатус:.*$/s, "");
-
-  await telegramRequest("editMessageText", {
-    chat_id: callback.message.chat.id,
-    message_id: callback.message.message_id,
-    text: `${sourceText}\n\n${statusLine}`,
-    disable_web_page_preview: true,
-    reply_markup: submissionKeyboard(submission, { moderated: true })
-  });
+  const card = buildModerationCard(moderationCardView(submission, {
+    status,
+    rejectionReason,
+    publicSent: publicResult.sent
+  }));
+  await editRichBotMessage(
+    callback.message.chat.id,
+    callback.message.message_id,
+    card,
+    submissionKeyboard(submission, { moderated: true })
+  );
   await answerTelegramCallback(
     callbackId,
     status === "approved" ? "Додано до бази." : "Заявку відхилено."
@@ -444,13 +451,7 @@ async function processTelegramCallback(callback) {
 }
 
 async function sendBotWelcome(chatId) {
-  await sendBotMessage(chatId, [
-    "BLACK LIST СВІТЛО ПАРК",
-    "",
-    "Надішли номер телефону майстра, бригади або підрядника — я перевірю рекомендації та скарги.",
-    "",
-    "Також тут можна повністю оформити рекомендацію, скаргу або анкету майстра разом із фото."
-  ].join("\n"), mainMenuKeyboard());
+  await sendRichBotMessage(chatId, buildWelcomeCard(), mainMenuKeyboard());
 }
 
 function parseIntakeStartPayload(payload) {
@@ -488,16 +489,17 @@ async function beginBotIntake(message, type, rawPhone = "") {
   };
 
   await saveBotSession(chatId, session);
-  const intro = type === "recommend"
-    ? "✅ НОВА РЕКОМЕНДАЦІЯ"
+  const label = type === "recommend"
+    ? "✅ Рекомендація"
     : type === "complaint"
-      ? "⚠️ НОВА СКАРГА"
-      : "🧰 АНКЕТА МАЙСТРА";
+      ? "⚠️ Скарга"
+      : "🧰 Анкета майстра";
+  const title = hasPhone ? `${label} · Майстер` : `${label} · Номер телефону`;
   const question = hasPhone
-    ? `Номер: ${formatPhone(phone)}\n\nЯк звати майстра або бригаду?`
-    : "Надішли номер телефону майстра у форматі +380 XX XXX XX XX. Якщо номерів кілька — напиши їх через кому.";
+    ? `Номер уже збережено: ${formatPhone(phone)}\n\nЯк звати майстра або бригаду?`
+    : "Надішли номер майстра у форматі +380 XX XXX XX XX. Якщо номерів кілька — напиши їх через кому.";
 
-  await sendBotMessage(chatId, `${intro}\n\n${question}`, cancelIntakeKeyboard());
+  await sendBotMessage(chatId, intakePrompt(hasPhone ? 2 : 1, title, question), cancelIntakeKeyboard());
 }
 
 async function processBotIntakeMessage(message, session) {
@@ -505,13 +507,13 @@ async function processBotIntakeMessage(message, session) {
 
   if (hasTelegramAttachment(message)) {
     if (session.step !== "photos") {
-      await sendBotMessage(chatId, "Фото додамо наприкінці. Спочатку дай відповідь на поточне запитання.", cancelIntakeKeyboard());
+      await sendBotMessage(chatId, botPrompt("Фото додамо на кроці 7/7", "Спочатку дай відповідь на поточне запитання."), cancelIntakeKeyboard());
       return;
     }
 
     const attachment = getTelegramAttachment(message);
     if (!attachment) {
-      await sendBotMessage(chatId, "Не вдалося прочитати це фото. Спробуй надіслати його як фото або зображення.", photoIntakeKeyboard());
+      await sendBotMessage(chatId, intakePrompt(7, "Фото не розпізнано", "Надішли його як фото або файл-зображення."), photoIntakeKeyboard());
       return;
     }
 
@@ -521,7 +523,7 @@ async function processBotIntakeMessage(message, session) {
     await saveBotSession(chatId, session);
     await sendBotMessage(
       chatId,
-      `Фото додано: ${session.photoFileIds.length}. Можна надіслати ще або завершити заявку.`,
+      intakePrompt(7, "Фото додано", `Завантажено: ${session.photoFileIds.length}. Можна надіслати ще або завершити заявку.`),
       photoIntakeKeyboard()
     );
     return;
@@ -535,45 +537,45 @@ async function processBotIntakeMessage(message, session) {
   if (session.step === "phone") {
     const phones = normalizePhoneList(text);
     if (!phones.length) {
-      await sendBotMessage(chatId, "Номер не розпізнано. Надішли +380 XX XXX XX XX або 0XX XXX XX XX.", cancelIntakeKeyboard());
+      await sendBotMessage(chatId, intakePrompt(1, "Номер не розпізнано", "Надішли +380 XX XXX XX XX або 0XX XXX XX XX."), cancelIntakeKeyboard());
       return;
     }
     session.phone = phones[0];
     session.phoneNumbers = phones;
     session.step = "name";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Як звати майстра або бригаду?", cancelIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(2, "Майстер", "Як звати майстра або бригаду?"), cancelIntakeKeyboard());
     return;
   }
 
   if (session.step === "name") {
     if (text.length < 2) {
-      await sendBotMessage(chatId, "Вкажи імʼя майстра або назву бригади.", cancelIntakeKeyboard());
+      await sendBotMessage(chatId, intakePrompt(2, "Потрібне імʼя", "Вкажи імʼя майстра або назву бригади."), cancelIntakeKeyboard());
       return;
     }
     session.masterName = text;
     session.step = "telegram";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Якщо знаєш Telegram майстра — надішли @username. Інакше натисни «Пропустити».", optionalTelegramKeyboard());
+    await sendBotMessage(chatId, intakePrompt(3, "Telegram", "Якщо знаєш Telegram майстра — надішли @username.", "Цей крок можна пропустити."), optionalTelegramKeyboard());
     return;
   }
 
   if (session.step === "telegram") {
     const username = normalizeTelegramUsername(text);
     if (!username) {
-      await sendBotMessage(chatId, "Надішли @username або натисни «Пропустити».", optionalTelegramKeyboard());
+      await sendBotMessage(chatId, intakePrompt(3, "Username не розпізнано", "Надішли @username або натисни «Пропустити»."), optionalTelegramKeyboard());
       return;
     }
     session.telegramUsername = username;
     session.step = "category";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Які послуги надає майстер? Можна вказати кілька через кому.", cancelIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(4, "Послуги", "Які послуги надає майстер? Можна вказати кілька через кому."), cancelIntakeKeyboard());
     return;
   }
 
   if (session.step === "category") {
     if (text.length < 2) {
-      await sendBotMessage(chatId, "Вкажи хоча б одну послугу.", cancelIntakeKeyboard());
+      await sendBotMessage(chatId, intakePrompt(4, "Потрібна послуга", "Вкажи хоча б одну послугу."), cancelIntakeKeyboard());
       return;
     }
     session.category = normalizeServices(text);
@@ -584,19 +586,19 @@ async function processBotIntakeMessage(message, session) {
       : session.type === "complaint"
         ? "Опиши, що сталося. Пиши лише про власний досвід і конкретні факти."
         : "Напиши, за що рекомендуєш цього майстра.";
-    await sendBotMessage(chatId, prompt, cancelIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(5, "Досвід", prompt), cancelIntakeKeyboard());
     return;
   }
 
   if (session.step === "review") {
     if (text.length < 8) {
-      await sendBotMessage(chatId, "Додай трохи деталей — мінімум 8 символів.", cancelIntakeKeyboard());
+      await sendBotMessage(chatId, intakePrompt(5, "Потрібно більше деталей", "Опиши досвід хоча б у 8 символах."), cancelIntakeKeyboard());
       return;
     }
     session.text = text;
     session.step = "author";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Як підписати цей відгук? Надішли імʼя або обери «Анонімно».", authorKeyboard());
+    await sendBotMessage(chatId, intakePrompt(6, "Автор відгуку", "Надішли імʼя або обери «Анонімно»."), authorKeyboard());
     return;
   }
 
@@ -604,7 +606,7 @@ async function processBotIntakeMessage(message, session) {
     session.authorName = /^анон/i.test(text) ? "Анонімно" : text;
     session.step = "photos";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Надішли фото до відгуку або заверши заявку без фото.", photoIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(7, "Фотографії", "Надішли фото до відгуку або заверши заявку без фото.", "Можна додати до 10 зображень."), photoIntakeKeyboard());
     return;
   }
 
@@ -613,7 +615,7 @@ async function processBotIntakeMessage(message, session) {
       await finalizeBotIntake(chatId, session);
       return;
     }
-    await sendBotMessage(chatId, "На цьому кроці надішли фото або натисни «Готово».", photoIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(7, "Фотографії", "Надішли фото або натисни «Готово, на модерацію»."), photoIntakeKeyboard());
   }
 }
 
@@ -623,13 +625,13 @@ async function processBotIntakeCallback(callback, data) {
   const session = await getBotSession(chatId);
 
   if (!session) {
-    await answerTelegramCallback(callbackId, "Заявка вже завершена або скасована.", true);
+    await answerTelegramCallback(callbackId, "Ця заявка вже завершена або скасована.", true);
     return;
   }
 
   if (data === "intake:cancel") {
     await clearBotSession(chatId);
-    await sendBotMessage(chatId, "Заявку скасовано.", mainMenuKeyboard());
+    await sendBotMessage(chatId, botPrompt("Заявку скасовано", "Можеш почати нову дію з меню нижче."), mainMenuKeyboard());
     await answerTelegramCallback(callbackId, "Скасовано.");
     return;
   }
@@ -637,7 +639,7 @@ async function processBotIntakeCallback(callback, data) {
   if (data === "intake:skip_username" && session.step === "telegram") {
     session.step = "category";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Які послуги надає майстер? Можна вказати кілька через кому.", cancelIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(4, "Послуги", "Які послуги надає майстер? Можна вказати кілька через кому."), cancelIntakeKeyboard());
     await answerTelegramCallback(callbackId, "Пропущено.");
     return;
   }
@@ -646,7 +648,7 @@ async function processBotIntakeCallback(callback, data) {
     session.authorName = "Анонімно";
     session.step = "photos";
     await saveBotSession(chatId, session);
-    await sendBotMessage(chatId, "Надішли фото до відгуку або заверши заявку без фото.", photoIntakeKeyboard());
+    await sendBotMessage(chatId, intakePrompt(7, "Фотографії", "Надішли фото до відгуку або заверши заявку без фото.", "Можна додати до 10 зображень."), photoIntakeKeyboard());
     await answerTelegramCallback(callbackId, "Відгук буде анонімним.");
     return;
   }
@@ -669,17 +671,15 @@ async function finalizeBotIntake(chatId, session) {
     });
     const telegramResult = await sendTelegram(saved);
     await clearBotSession(chatId);
-    await sendBotMessage(chatId, [
-      "ЗАЯВКУ ПЕРЕДАНО НА МОДЕРАЦІЮ",
-      "",
-      `Номер: ${formatPhone(saved.phone)}`,
-      `Заявка: ${saved.id.slice(0, 8)}`,
-      telegramResult.sent
-        ? "Після перевірки запис зʼявиться у пошуку та каналі."
-        : "Заявку збережено, але модераційний чат тимчасово недоступний."
-    ].join("\n"), mainMenuKeyboard());
+    const card = buildIntakeCompleteCard({
+      phone: formatPhone(saved.phone),
+      rawPhone: saved.phone,
+      id: saved.id.slice(0, 8),
+      sent: telegramResult.sent
+    });
+    await sendRichBotMessage(chatId, card, mainMenuKeyboard());
   } catch (error) {
-    await sendBotMessage(chatId, "Не вдалося зберегти заявку. Спробуй ще раз або напиши /cancel.", cancelIntakeKeyboard());
+    await sendBotMessage(chatId, botPrompt("Не вдалося зберегти заявку", "Спробуй ще раз або напиши /cancel."), cancelIntakeKeyboard());
   }
 }
 
@@ -777,36 +777,10 @@ async function sendTelegram(submission) {
     return { sent: false, skipped: true };
   }
 
-  const heading = submission.type === "recommend"
-    ? "✅ НОВА РЕКОМЕНДАЦІЯ"
-    : submission.type === "complaint"
-      ? "⚠️ НОВА СКАРГА"
-      : "🧰 НОВА АНКЕТА МАЙСТРА";
-  const message = [
-    heading,
-    "",
-    `Майстер: ${submission.masterName || "не вказано"}`,
-    `Послуги: ${submission.category || "не вказано"}`,
-    `Телефон: ${submissionPhones(submission).map(formatPhone).join(", ") || "не вказано"}`,
-    submission.telegramUsername ? `Telegram: ${submission.telegramUsername}` : "",
-    `Автор відгуку: ${submission.authorName || "Анонімно"}`,
-    `Надіслав: ${submission.authorContact || "не вказано"}`,
-    `Фото: ${submission.photoFileIds.length || (submission.photoUrl ? 1 : 0)}`,
-    submission.sourceNote ? `Джерело: ${submission.sourceNote.replace(/^\*\s*/, "")}` : "",
-    "",
-    submission.text,
-    "",
-    `Заявка: ${submission.id.slice(0, 8)}`
-  ].filter(Boolean).join("\n");
+  const card = buildModerationCard(moderationCardView(submission));
+  const result = await sendRichBotMessage(chatId, card, submissionKeyboard(submission));
 
-  const result = await telegramRequest("sendMessage", {
-    chat_id: chatId,
-    text: message,
-    disable_web_page_preview: true,
-    reply_markup: submissionKeyboard(submission)
-  });
-
-  if (result.ok && submission.sourceChatId && submission.sourceMessageIds.length) {
+  if (result.sent && submission.sourceChatId && submission.sourceMessageIds.length) {
     for (const messageId of submission.sourceMessageIds) {
       await telegramRequest("copyMessage", {
         chat_id: chatId,
@@ -817,8 +791,8 @@ async function sendTelegram(submission) {
   }
 
   return {
-    sent: result.ok,
-    messageId: result.data?.result?.message_id || ""
+    sent: result.sent,
+    messageId: result.messageId || ""
   };
 }
 
@@ -829,61 +803,124 @@ async function publishApprovedSubmission(submission) {
 
   const phone = normalizePhone(submission.phone || submission.rawPhone);
   const isComplaint = submission.type === "complaint";
-  const isRecommendation = submission.type === "recommend";
-  const heading = isComplaint
-    ? "⚠️ Є СКАРГА"
-    : isRecommendation
-      ? "✅ РЕКОМЕНДУЮТЬ"
-      : "🧰 НОВИЙ МАЙСТЕР";
   const profileUrl = siteUrl("/profile", { phone });
   const sourceNote = submission.sourceNote || (isAutomatedImport(submission)
     ? "* Дані витягнуто автоматизовано з чату будинку."
     : "");
-  const message = [
-    heading,
-    "",
-    `Майстер: ${submission.masterName || "імʼя не вказано"}`,
-    `Послуги: ${submission.category || "не вказано"}`,
-    `Телефон: ${submissionPhones(submission).map(formatPhone).join(", ") || formatPhone(phone)}`,
-    submission.telegramUsername ? `Telegram: ${submission.telegramUsername}` : "",
-    "",
-    submission.text,
-    "",
-    isComplaint
+  const card = buildPublicCard({
+    type: submission.type,
+    name: submission.masterName,
+    services: submission.category,
+    phones: submissionPhoneView(submission),
+    telegramUsername: submission.telegramUsername,
+    review: submission.text,
+    author: submission.authorName,
+    profileUrl,
+    disclaimer: isComplaint
       ? "Це опис користувацького досвіду, а не встановлений платформою факт порушення."
       : "Запис перевірено модератором перед публікацією.",
-    sourceNote,
-    "",
-    `Відкрити профіль: ${profileUrl}`
-  ].filter(Boolean).join("\n");
-  const result = await telegramRequest("sendMessage", {
-    chat_id: TELEGRAM_PUBLIC_CHAT_ID,
-    text: message,
-    disable_web_page_preview: true,
-    reply_markup: {
-      inline_keyboard: [[{ text: "Перевірити інший номер", url: telegramBotUrl() }]]
-    }
+    source: sourceNote.replace(/^\*\s*/, "")
+  });
+  const result = await sendRichBotMessage(TELEGRAM_PUBLIC_CHAT_ID, card, {
+    inline_keyboard: [[telegramButton("Перевірити інший номер", { url: telegramBotUrl() }, "primary")]]
   });
 
   return {
-    sent: result.ok,
-    messageId: result.data?.result?.message_id || ""
+    sent: result.sent,
+    messageId: result.messageId || ""
   };
 }
 
-async function sendBotMessage(chatId, text, replyMarkup = null) {
+function submissionPhoneView(submission) {
+  return submissionPhones(submission).map((phone) => ({
+    value: formatPhone(phone),
+    href: `tel:${phone}`
+  }));
+}
+
+function moderationCardView(submission, state = {}) {
+  const phone = normalizePhone(submission.phone || submission.rawPhone);
+  return {
+    type: submission.type,
+    name: submission.masterName,
+    services: submission.category,
+    phones: submissionPhoneView(submission),
+    telegramUsername: submission.telegramUsername,
+    author: submission.authorName,
+    submittedBy: submission.authorContact,
+    photoCount: submission.photoFileIds.length || (submission.photoUrl ? 1 : 0),
+    source: submission.sourceNote?.replace(/^\*\s*/, ""),
+    review: submission.text,
+    id: submission.id.slice(0, 8),
+    profileUrl: phone ? siteUrl("/profile", { phone }) : "",
+    ...state
+  };
+}
+
+async function sendBotMessage(chatId, html, replyMarkup = null) {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
     return { sent: false, skipped: true };
   }
 
   const result = await telegramRequest("sendMessage", {
     chat_id: chatId,
-    text,
-    disable_web_page_preview: true,
+    text: html,
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
     ...(replyMarkup ? { reply_markup: replyMarkup } : {})
   });
 
-  return { sent: result.ok };
+  return {
+    sent: result.ok,
+    messageId: result.data?.result?.message_id || "",
+    mode: "regular"
+  };
+}
+
+async function sendRichBotMessage(chatId, card, replyMarkup = null) {
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    return { sent: false, skipped: true };
+  }
+
+  const richResult = await telegramRequest("sendRichMessage", {
+    chat_id: chatId,
+    rich_message: { html: card.richHtml },
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  });
+
+  if (!richResult.ok) {
+    return sendBotMessage(chatId, card.fallbackHtml, replyMarkup);
+  }
+
+  return {
+    sent: true,
+    messageId: richResult.data?.result?.message_id || "",
+    mode: "rich"
+  };
+}
+
+async function editRichBotMessage(chatId, messageId, card, replyMarkup = null) {
+  const richResult = await telegramRequest("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    rich_message: { html: card.richHtml },
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  });
+
+  if (richResult.ok) {
+    return { edited: true, mode: "rich" };
+  }
+
+  const fallbackResult = await telegramRequest("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text: card.fallbackHtml,
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+  });
+
+  return { edited: fallbackResult.ok, mode: "regular" };
 }
 
 async function relayTelegramAttachmentToAdmin(message, submissionId = "") {
@@ -894,16 +931,15 @@ async function relayTelegramAttachmentToAdmin(message, submissionId = "") {
   }
 
   const caption = clean(message.caption, 1000);
-  const intro = [
-    "Фото/файл у Telegram-боті",
-    `Від: ${describeTelegramSender(message)}`,
-    submissionId ? `Заявка: ${submissionId}` : "Заявка: не привʼязана",
-    caption ? `Підпис: ${caption}` : "",
-    "",
-    "Оригінал нижче скопійовано в цей чат."
-  ].filter(Boolean).join("\n");
+  const card = buildRelayCard({
+    title: "Фото в Telegram-боті",
+    sender: describeTelegramSender(message),
+    submissionId: submissionId || "не привʼязана",
+    text: caption,
+    footer: "Оригінал нижче скопійовано в цей чат."
+  });
 
-  await sendBotMessage(chatId, intro);
+  await sendRichBotMessage(chatId, card);
   const result = await telegramRequest("copyMessage", {
     chat_id: chatId,
     from_chat_id: message.chat.id,
@@ -920,12 +956,11 @@ async function relayTelegramTextToAdmin(message, text) {
     return false;
   }
 
-  const result = await sendBotMessage(chatId, [
-    "Повідомлення у Telegram-боті",
-    `Від: ${describeTelegramSender(message)}`,
-    "",
+  const result = await sendRichBotMessage(chatId, buildRelayCard({
+    title: "Повідомлення у Telegram-боті",
+    sender: describeTelegramSender(message),
     text
-  ].join("\n"));
+  }));
 
   return result.sent;
 }
@@ -1019,13 +1054,13 @@ function submissionKeyboard(submission, options = {}) {
 
   if (!options.moderated) {
     rows.push([
-      { text: "✅ Додати до бази", callback_data: `approve:${submission.id}` },
-      { text: "✕ Відхилити", callback_data: `reject:${submission.id}` }
+      telegramButton("Додати до бази", { callback_data: `approve:${submission.id}` }, "success"),
+      telegramButton("Відхилити", { callback_data: `reject:${submission.id}` }, "danger")
     ]);
   }
 
   if (submission.phone) {
-    rows.push([{ text: "Відкрити профіль", url: siteUrl("/profile", { phone: submission.phone }) }]);
+    rows.push([telegramButton("Відкрити профіль", { url: siteUrl("/profile", { phone: submission.phone }) }, "primary")]);
   }
 
   return { inline_keyboard: rows };
@@ -1035,13 +1070,13 @@ function rejectionReasonKeyboard(submission) {
   const id = submission.id;
   return {
     inline_keyboard: [
-      [{ text: "Недостатньо доказів", callback_data: `reject_reason:evidence:${id}` }],
-      [{ text: "Бракує деталей або фото", callback_data: `reject_reason:details:${id}` }],
-      [{ text: "Дублікат", callback_data: `reject_reason:duplicate:${id}` }],
-      [{ text: "Спам або реклама", callback_data: `reject_reason:spam:${id}` }],
-      [{ text: "Некоректний контакт", callback_data: `reject_reason:contact:${id}` }],
-      [{ text: "Інша причина", callback_data: `reject_reason:other:${id}` }],
-      [{ text: "Назад", callback_data: `reject_back:${id}` }]
+      [telegramButton("Недостатньо доказів", { callback_data: `reject_reason:evidence:${id}` }, "danger")],
+      [telegramButton("Бракує деталей або фото", { callback_data: `reject_reason:details:${id}` }, "danger")],
+      [telegramButton("Дублікат", { callback_data: `reject_reason:duplicate:${id}` }, "danger")],
+      [telegramButton("Спам або реклама", { callback_data: `reject_reason:spam:${id}` }, "danger")],
+      [telegramButton("Некоректний контакт", { callback_data: `reject_reason:contact:${id}` }, "danger")],
+      [telegramButton("Інша причина", { callback_data: `reject_reason:other:${id}` }, "danger")],
+      [telegramButton("Назад", { callback_data: `reject_back:${id}` })]
     ]
   };
 }
@@ -1060,20 +1095,20 @@ function rejectionReasonLabel(code) {
 
 function mainMenuKeyboard() {
   const rows = [
-    [{ text: "🔎 Відкрити пошук", url: siteUrl("/") }],
+    [telegramButton("Відкрити пошук", { url: siteUrl("/") }, "primary")],
     [
-      { text: "✅ Порекомендувати", callback_data: "start:recommend" },
-      { text: "⚠️ Залишити скаргу", callback_data: "start:complaint" }
+      telegramButton("Порекомендувати", { callback_data: "start:recommend" }, "success"),
+      telegramButton("Залишити скаргу", { callback_data: "start:complaint" }, "danger")
     ],
-    [{ text: "🧰 Стати майстром", callback_data: "start:add" }],
+    [telegramButton("Стати майстром", { callback_data: "start:add" }, "primary")],
     [
-      { text: "Усі послуги", url: siteUrl("/#service-categories") },
-      { text: "Black List", url: siteUrl("/complaints") }
+      telegramButton("Усі послуги", { url: siteUrl("/#service-categories") }),
+      telegramButton("Black List", { url: siteUrl("/complaints") })
     ]
   ];
 
   if (TELEGRAM_PUBLIC_URL) {
-    rows.push([{ text: "Публічний канал", url: normalizeTelegramLink(TELEGRAM_PUBLIC_URL) }]);
+    rows.push([telegramButton("Публічний канал", { url: normalizeTelegramLink(TELEGRAM_PUBLIC_URL) }, "primary")]);
   }
 
   return {
@@ -1083,36 +1118,35 @@ function mainMenuKeyboard() {
 
 function categoriesKeyboard() {
   return {
-    inline_keyboard: [[{ text: "Відкрити всі послуги", url: siteUrl("/#service-categories") }]]
+    inline_keyboard: [[telegramButton("Відкрити всі послуги", { url: siteUrl("/#service-categories") }, "primary")]]
   };
 }
 
 function blacklistKeyboard() {
   return {
-    inline_keyboard: [[{ text: "Відкрити Black List", url: siteUrl("/complaints") }]]
+    inline_keyboard: [[telegramButton("Відкрити Black List", { url: siteUrl("/complaints") }, "danger")]]
   };
 }
 
 function publicChannelKeyboard() {
   return {
-    inline_keyboard: [[{
-      text: "Відкрити канал",
+    inline_keyboard: [[telegramButton("Відкрити канал", {
       url: normalizeTelegramLink(TELEGRAM_PUBLIC_URL) || siteUrl("/")
-    }]]
+    }, "primary")]]
   };
 }
 
 function cancelIntakeKeyboard() {
   return {
-    inline_keyboard: [[{ text: "Скасувати", callback_data: "intake:cancel" }]]
+    inline_keyboard: [[telegramButton("Скасувати", { callback_data: "intake:cancel" }, "danger")]]
   };
 }
 
 function optionalTelegramKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "Пропустити", callback_data: "intake:skip_username" }],
-      [{ text: "Скасувати", callback_data: "intake:cancel" }]
+      [telegramButton("Пропустити", { callback_data: "intake:skip_username" }, "primary")],
+      [telegramButton("Скасувати", { callback_data: "intake:cancel" }, "danger")]
     ]
   };
 }
@@ -1120,8 +1154,8 @@ function optionalTelegramKeyboard() {
 function authorKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "Анонімно", callback_data: "intake:anonymous" }],
-      [{ text: "Скасувати", callback_data: "intake:cancel" }]
+      [telegramButton("Анонімно", { callback_data: "intake:anonymous" }, "primary")],
+      [telegramButton("Скасувати", { callback_data: "intake:cancel" }, "danger")]
     ]
   };
 }
@@ -1129,8 +1163,8 @@ function authorKeyboard() {
 function photoIntakeKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "Готово, на модерацію", callback_data: "intake:finish" }],
-      [{ text: "Скасувати", callback_data: "intake:cancel" }]
+      [telegramButton("Готово, на модерацію", { callback_data: "intake:finish" }, "success")],
+      [telegramButton("Скасувати", { callback_data: "intake:cancel" }, "danger")]
     ]
   };
 }
@@ -1140,10 +1174,10 @@ function notFoundKeyboard(phone) {
   return {
     inline_keyboard: [
       [
-        { text: "✅ Рекомендація", callback_data: `start:recommend:${digits}` },
-        { text: "⚠️ Скарга", callback_data: `start:complaint:${digits}` }
+        telegramButton("Рекомендація", { callback_data: `start:recommend:${digits}` }, "success"),
+        telegramButton("Скарга", { callback_data: `start:complaint:${digits}` }, "danger")
       ],
-      [{ text: "🧰 Стати майстром", callback_data: `start:add:${digits}` }]
+      [telegramButton("Стати майстром", { callback_data: `start:add:${digits}` }, "primary")]
     ]
   };
 }
@@ -1152,10 +1186,10 @@ function foundKeyboard(phone, profileUrl) {
   const digits = String(phone || "").replace(/\D/g, "");
   return {
     inline_keyboard: [
-      [{ text: "Відкрити профіль", url: profileUrl }],
+      [telegramButton("Відкрити профіль", { url: profileUrl }, "primary")],
       [
-        { text: "✅ Додати рекомендацію", callback_data: `start:recommend:${digits}` },
-        { text: "⚠️ Залишити скаргу", callback_data: `start:complaint:${digits}` }
+        telegramButton("Додати рекомендацію", { callback_data: `start:recommend:${digits}` }, "success"),
+        telegramButton("Залишити скаргу", { callback_data: `start:complaint:${digits}` }, "danger")
       ]
     ]
   };
