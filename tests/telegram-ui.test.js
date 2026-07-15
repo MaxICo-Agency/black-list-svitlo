@@ -3,6 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  buildMySubmissionsCard,
+  buildSubmissionDecisionCard,
   buildFoundCard,
   buildModerationCard,
   buildNotFoundCard,
@@ -71,6 +73,8 @@ test("uses native details for moderation and expandable fallback", () => {
   });
 
   assert.match(card.richHtml, /<details><summary>Службова інформація<\/summary>/);
+  assert.match(card.richHtml, /<h3>Майстер<\/h3>/);
+  assert.match(card.richHtml, /<h3>Відгук<\/h3>/);
   assert.match(card.fallbackHtml, /<blockquote expandable>/);
   assert.doesNotMatch(card.fallbackHtml, RICH_ONLY_OR_UNSUPPORTED_REGULAR_TAG);
   assert.match(card.richHtml, /Проблема &lt;b&gt;не вирішена&lt;\/b&gt;/);
@@ -109,7 +113,32 @@ test("regular bot prompts use Telegram-supported HTML only", () => {
   const prompt = intakePrompt(1, "Телефон", "Рядок один\nРядок два", "Підказка");
 
   assert.match(prompt, /Рядок один\nРядок два/);
+  assert.match(prompt, /<code>●○○○○○○<\/code>/);
   assert.doesNotMatch(prompt, /<br\s*\/?\s*>/i);
+});
+
+test("renders submission decisions and an editable submission list", () => {
+  const decision = buildSubmissionDecisionCard({
+    status: "rejected",
+    type: "complaint",
+    name: "Майстер",
+    phones: [],
+    rejectionReason: "Бракує деталей"
+  });
+  const list = buildMySubmissionsCard({
+    items: [{
+      name: "Майстер",
+      typeLabel: "Рекомендація",
+      statusLabel: "Схвалено",
+      date: "2026-07-15",
+      review: "Усе зроблено вчасно"
+    }]
+  });
+
+  assert.match(decision.richHtml, /Заявку не схвалено/);
+  assert.match(decision.richHtml, /Причина модерації/);
+  assert.match(list.richHtml, /<h3>1\. Майстер<\/h3>/);
+  assert.doesNotMatch(list.fallbackHtml, RICH_ONLY_OR_UNSUPPORTED_REGULAR_TAG);
 });
 
 test("refresh keeps rich messages on Telegram no-op and rate-limit responses", () => {

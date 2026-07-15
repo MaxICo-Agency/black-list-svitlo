@@ -195,8 +195,10 @@ function moderationView(submission, state = {}) {
     submittedBy: submission.authorContact,
     photoCount: (submission.photoFileIds || []).length || (submission.photoUrl ? 1 : 0),
     source: String(submission.sourceNote || "").replace(/^\*\s*/, ""),
+    sourceUrl: submission.sourceUrl,
     review: submission.text,
     id: submission.id.slice(0, 8),
+    revisionOf: submission.replacesSubmissionId ? submission.replacesSubmissionId.slice(0, 8) : "",
     profileUrl: phone ? siteUrl("/profile", { phone }) : "",
     ...state
   };
@@ -227,10 +229,8 @@ function publicView(submission) {
 function moderationKeyboard(submission, moderated) {
   const rows = [];
   if (!moderated) {
-    rows.push([
-      telegramButton("Додати до бази", { callback_data: `approve:${submission.id}` }, "success"),
-      telegramButton("Відхилити", { callback_data: `reject:${submission.id}` }, "danger")
-    ]);
+    rows.push([telegramButton("Схвалити й додати до бази", { callback_data: `approve:${submission.id}` }, "success")]);
+    rows.push([telegramButton("Відхилити заявку", { callback_data: `reject:${submission.id}` }, "danger")]);
   }
   const phone = submissionPhones(submission)[0];
   if (phone) {

@@ -56,6 +56,7 @@ function telegramCard(options = {}) {
   const items = normalizeList(options.items);
   const fields = normalizeList(options.fields).filter((field) => field?.label && (field.value || field.values?.length));
   const links = normalizeList(options.links).filter((item) => item?.label && item?.href);
+  const sections = normalizeList(options.sections);
   const footer = normalizeList(options.footer);
   const rich = [];
   const fallback = [];
@@ -98,6 +99,43 @@ function telegramCard(options = {}) {
     fallback.push(`<blockquote>${htmlText(options.quote.text)}${options.quote.credit ? `\n— ${htmlText(options.quote.credit)}` : ""}</blockquote>`);
   }
 
+  for (const section of sections) {
+    const sectionTitle = String(section?.title || "").trim();
+    const sectionParagraphs = normalizeList(section?.paragraphs);
+    const sectionFields = normalizeList(section?.fields)
+      .filter((field) => field?.label && (field.value || field.values?.length));
+    const sectionQuote = section?.quote?.text ? section.quote : null;
+
+    if (!sectionTitle && !sectionParagraphs.length && !sectionFields.length && !sectionQuote) {
+      continue;
+    }
+
+    rich.push("<hr/>");
+    if (sectionTitle) {
+      rich.push(`<h3>${htmlText(sectionTitle)}</h3>`);
+      fallback.push(`<b>${htmlText(sectionTitle)}</b>`);
+    }
+    for (const paragraph of sectionParagraphs) {
+      rich.push(`<p>${htmlText(paragraph)}</p>`);
+      fallback.push(htmlText(paragraph));
+    }
+    if (sectionFields.length) {
+      rich.push(`<ul>${sectionFields.map((field) => (
+        `<li><b>${htmlText(field.label)}:</b> ${renderFieldValue(field)}</li>`
+      )).join("")}</ul>`);
+      fallback.push(sectionFields.map((field) => (
+        `<b>${htmlText(field.label)}:</b> ${renderFieldValue(field)}`
+      )).join("\n"));
+    }
+    if (sectionQuote) {
+      const credit = sectionQuote.credit
+        ? `<cite>${htmlText(sectionQuote.credit)}</cite>`
+        : "";
+      rich.push(`<blockquote>${htmlText(sectionQuote.text)}${credit}</blockquote>`);
+      fallback.push(`<blockquote>${htmlText(sectionQuote.text)}${sectionQuote.credit ? `\n— ${htmlText(sectionQuote.credit)}` : ""}</blockquote>`);
+    }
+  }
+
   if (links.length) {
     rich.push(links.map((item) => `<p>${htmlLink(item.label, item.href)}</p>`).join(""));
     fallback.push(links.map((item) => htmlLink(item.label, item.href)).join("\n"));
@@ -128,8 +166,20 @@ function botPrompt(title, body = "", hint = "") {
   ].filter(Boolean).join("\n\n");
 }
 
-function intakePrompt(step, title, body, hint = "") {
-  return botPrompt(`${step}/7 · ${title}`, body, hint);
+function intakePrompt(step, title, body, hint = "", options = {}) {
+  const total = Number(options.total) || 7;
+  const current = Math.min(Math.max(Number(step) || 1, 1), total);
+  const progress = `${"●".repeat(current)}${"○".repeat(Math.max(total - current, 0))}`;
+  const summary = normalizeList(options.summary).map(htmlText).join("\n");
+
+  return [
+    options.kind ? `<b>${htmlText(options.kind)}</b>` : "",
+    `<code>${progress}</code> <i>${current} із ${total}</i>`,
+    summary ? `<blockquote>${summary}</blockquote>` : "",
+    title ? `<b>${htmlText(title)}</b>` : "",
+    body ? htmlText(body) : "",
+    hint ? `<i>${htmlText(hint)}</i>` : ""
+  ].filter(Boolean).join("\n\n");
 }
 
 function typeMeta(type) {
@@ -161,12 +211,9 @@ function phoneField(phones = []) {
 
 function buildWelcomeCard() {
   return telegramCard({
-    title: "Black List Світло парк",
-    subtitle: "Перевір майстра перед ремонтом",
-    paragraphs: [
-      "Надішли номер телефону майстра, бригади або підрядника — я перевірю рекомендації та скарги мешканців.",
-      "Тут також можна оформити рекомендацію, скаргу або анкету майстра разом із фотографіями."
-    ],
+    title: "Перевір майстра",
+    subtitle: "Пошук за номером телефону",
+    paragraphs: "Надішли номер майстра, бригади або підрядника — я покажу схвалені рекомендації та скарги мешканців.",
     quote: { text: "Усі публічні записи проходять модерацію." },
     footer: "Номер можна надсилати з пробілами, дужками або дефісами."
   });
@@ -177,7 +224,7 @@ function buildNotFoundCard({ phone, rawPhone }) {
     title: "Майстра не знайдено",
     paragraphs: "У базі поки немає рекомендацій або скарг для цього номера.",
     fields: [phoneField([{ value: phone, href: `tel:${rawPhone}` }])],
-    footer: "Можеш залишити рекомендацію, скаргу або додати анкету майстра."
+    footer: "Можеш залишити рекомендацію або скаргу про власний досвід."
   });
 }
 
@@ -231,18 +278,92 @@ function buildModerationCard(view) {
 
   return telegramCard({
     title: `${meta.icon} ${meta.moderationTitle}`,
-    subtitle: view.name || "Імʼя не вказано",
-    fields: [
-      { label: "Послуги", value: view.services || "не вказано" },
-      phoneField(view.phones),
-      telegramUsernameField(view.telegramUsername),
-      { label: "Автор відгуку", value: view.author || "Анонімно" }
+    subtitle: statusText || (view.revisionOf ? "Оновлення відгуку очікує рішення" : "Очікує рішення модератора"),
+    sections: [
+      {
+        title: "Майстер",
+        fields: [
+          { label: "Імʼя", value: view.name || "не вказано" },
+          { label: "Послуги", value: view.services || "не вказано" },
+          phoneField(view.phones),
+          telegramUsernameField(view.telegramUsername)
+        ].filter(Boolean)
+      },
+      {
+        title: "Відгук",
+        fields: [{ label: "Автор", value: view.author || "Анонімно" }],
+        quote: view.review ? { text: view.review, credit: view.author || "Анонімно" } : null
+      }
+    ],
+    links: [
+      view.profileUrl ? { label: "Відкрити профіль", href: view.profileUrl } : null,
+      view.sourceUrl ? { label: "Відкрити джерело", href: view.sourceUrl } : null
     ].filter(Boolean),
-    quote: view.review ? { text: view.review, credit: view.author || "Анонімно" } : null,
-    paragraphs: statusText ? [statusText] : [],
-    links: view.profileUrl ? [{ label: "Відкрити профіль", href: view.profileUrl }] : [],
     details: { summary: "Службова інформація", lines: serviceLines },
     footer: view.status ? [] : "Перевір дані та обери рішення кнопками нижче."
+  });
+}
+
+function buildSubmissionDecisionCard(view) {
+  const approved = view.status === "approved";
+  const meta = typeMeta(view.type);
+  const title = approved ? "✅ Заявку схвалено" : "❌ Заявку не схвалено";
+
+  return telegramCard({
+    title,
+    subtitle: view.name || "Майстер",
+    paragraphs: approved
+      ? "Запис уже доступний у пошуку."
+      : "Запис не додано до публічної бази.",
+    fields: [
+      { label: "Тип", value: meta.publicTitle },
+      phoneField(view.phones)
+    ].filter(Boolean),
+    quote: !approved && view.rejectionReason
+      ? { text: view.rejectionReason, credit: "Причина модерації" }
+      : null,
+    links: approved && view.profileUrl
+      ? [{ label: "Відкрити профіль", href: view.profileUrl }]
+      : [],
+    footer: approved
+      ? "Дякуємо, що поділилися досвідом із сусідами."
+      : "Відгук можна виправити й повторно надіслати на модерацію."
+  });
+}
+
+function buildMySubmissionsCard(view) {
+  const items = normalizeList(view.items);
+
+  if (!items.length) {
+    return telegramCard({
+      title: "Мої заявки",
+      paragraphs: "Тут поки немає рекомендацій або скарг, надісланих із цього Telegram-акаунта.",
+      footer: "Нову заявку можна почати з головного меню."
+    });
+  }
+
+  return telegramCard({
+    title: "Мої заявки",
+    subtitle: `Останні ${items.length}`,
+    sections: items.map((item, index) => ({
+      title: `${index + 1}. ${item.name || "Майстер"}`,
+      fields: [
+        { label: "Тип", value: item.typeLabel },
+        { label: "Статус", value: item.statusLabel },
+        item.date ? { label: "Дата", value: item.date } : null
+      ].filter(Boolean),
+      quote: item.review ? { text: item.review } : null
+    })),
+    footer: "Змінювати можна заявки, за якими модератор уже ухвалив рішення."
+  });
+}
+
+function buildContactCard(view) {
+  return telegramCard({
+    title: "Звʼязатися з адміністрацією",
+    paragraphs: "Напиши адміністратору, якщо маєш питання щодо модерації, профілю майстра або власної заявки.",
+    links: [{ label: "Відкрити чат з адміністратором", href: view.adminUrl }],
+    footer: "Для швидшої відповіді вкажи номер телефону майстра або номер заявки."
   });
 }
 
@@ -311,13 +432,16 @@ function buildRelayCard(view) {
 module.exports = {
   botPrompt,
   buildChannelIntroCard,
+  buildContactCard,
   buildFoundCard,
   buildIntakeCompleteCard,
   buildModerationCard,
   buildModerationIntroCard,
+  buildMySubmissionsCard,
   buildNotFoundCard,
   buildPublicCard,
   buildRelayCard,
+  buildSubmissionDecisionCard,
   buildWelcomeCard,
   escapeTelegramHtml,
   intakePrompt,

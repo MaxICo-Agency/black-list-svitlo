@@ -5,8 +5,9 @@
   "description": "Black List Світло парк website and submission server",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check app.js && node --check category.js && node --check directory.js && node --check profile.js && node --check submit.js && node --check config.js && node --check telegram-ui.js && node --check scripts/refresh-telegram-messages.js && node --check server.js",
+    "check": "node --check app.js && node --check category.js && node --check directory.js && node --check profile.js && node --check submit.js && node --check config.js && node --check telegram-ui.js && node --check scripts/configure-telegram-bot.js && node --check scripts/import-submission.js && node --check scripts/refresh-telegram-messages.js && node --check server.js",
     "test": "node --test tests/*.test.js",
+    "telegram:configure": "node scripts/configure-telegram-bot.js",
     "telegram:refresh": "node scripts/refresh-telegram-messages.js"
   }
 }
